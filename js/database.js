@@ -60,6 +60,21 @@ const DB = {
         return records.find(r => r[field] === value) || null;
     },
 
+    // Get all records matching a field value
+    async getByField(table, field, value) {
+        if (this.useBackend()) {
+            try {
+                return await APIService.query(table, { [field]: value });
+            } catch (error) {
+                console.error(`Backend error, falling back to localStorage:`, error);
+            }
+        }
+
+        // localStorage fallback
+        const records = await this.getAll(table);
+        return records.filter(r => r[field] === value);
+    },
+
     // Insert new record
     async insert(table, record) {
         if (this.useBackend()) {

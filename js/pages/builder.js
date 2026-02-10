@@ -11,10 +11,25 @@ async function renderBuilderDashboard() {
         return;
     }
 
-    const myQuotes = DB.getByField('quotes', 'builder_id', user.id);
+    const myQuotes = await DB.getByField('quotes', 'builder_id', user.id);
     const pendingQuotes = myQuotes.filter(q => q.status === 'pending');
     const acceptedQuotes = myQuotes.filter(q => q.status === 'accepted');
     const rejectedQuotes = myQuotes.filter(q => q.status === 'rejected');
+
+    // Pre-build table rows (async lookups can't run inside template literals)
+    let tableRowsHtml = '';
+    for (const quote of myQuotes.slice(0, 5)) {
+        const request = await DB.getById('quote_requests', quote.quote_request_id);
+        const plot = request ? await DB.getById('plots', request.plot_id) : null;
+        tableRowsHtml += `
+            <tr>
+                <td>${plot?.title || 'Unknown'}</td>
+                <td>${formatCurrency(quote.amount)}</td>
+                <td>${getStatusBadge(quote.status)}</td>
+                <td>${timeAgo(quote.created_at)}</td>
+            </tr>
+        `;
+    }
 
     const main = document.getElementById('main-content');
     main.innerHTML = `
@@ -74,18 +89,7 @@ async function renderBuilderDashboard() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${myQuotes.slice(0, 5).map(quote => {
-        const request = DB.getById('quote_requests', quote.quote_request_id);
-        const plot = request ? DB.getById('plots', request.plot_id) : null;
-        return `
-                                            <tr>
-                                                <td>${plot?.title || 'Unknown'}</td>
-                                                <td>${formatCurrency(quote.amount)}</td>
-                                                <td>${getStatusBadge(quote.status)}</td>
-                                                <td>${timeAgo(quote.created_at)}</td>
-                                            </tr>
-                                        `;
-    }).join('')}
+                                    ${tableRowsHtml}
                                 </tbody>
                             </table>
                         </div>
@@ -130,11 +134,17 @@ async function renderOpenRequests() {
     if (!user || user.role !== 'builder') { navigateTo('login'); return; }
 
     // Get all open quote requests that builder hasn't quoted on yet
-    const allRequests = DB.getByField('quote_requests', 'status', 'open');
-    const myQuotes = DB.getByField('quotes', 'builder_id', user.id);
+    const allRequests = await DB.getByField('quote_requests', 'status', 'open');
+    const myQuotes = await DB.getByField('quotes', 'builder_id', user.id);
     const quotedRequestIds = myQuotes.map(q => q.quote_request_id);
 
     const availableRequests = allRequests.filter(req => !quotedRequestIds.includes(req.id));
+
+    // Pre-build request cards (async)
+    const requestCardsHtml = [];
+    for (const req of availableRequests) {
+        requestCardsHtml.push(await renderOpenRequestCard(req));
+    }
 
     const main = document.getElementById('main-content');
     main.innerHTML = `
@@ -155,7 +165,7 @@ async function renderOpenRequests() {
                     </div>
                 ` : `
                     <div class="grid-3">
-                        ${availableRequests.map(req => renderOpenRequestCard(req)).join('')}
+                        ${requestCardsHtml.join('')}
                     </div>
                 `}
             </div>
@@ -164,9 +174,9 @@ async function renderOpenRequests() {
     addDashboardStyles();
 }
 
-function renderOpenRequestCard(request) {
-    const plot = DB.getById('plots', request.plot_id);
-    const customer = DB.getOneByField('customer_profiles', 'user_id', request.customer_id);
+async function renderOpenRequestCard(request) {
+    const plot = await DB.getById('plots', request.plot_id);
+    const customer = await DB.getOneByField('customer_profiles', 'user_id', request.customer_id);
 
     return `
         <div class="card request-card">
@@ -209,10 +219,10 @@ function renderOpenRequestCard(request) {
     `;
 }
 
-function viewRequestDetails(requestId) {
-    const request = DB.getById('quote_requests', requestId);
-    const plot = DB.getById('plots', request.plot_id);
-    const customer = DB.getOneByField('customer_profiles', 'user_id', request.customer_id);
+async function viewRequestDetails(requestId) {
+    const request = await DB.getById('quote_requests', requestId);
+    const plot = await DB.getById('plots', request.plot_id);
+    const customer = await DB.getOneByField('customer_profiles', 'user_id', request.customer_id);
 
     showModal('Project Details', `
         <div class="request-details">
@@ -265,10 +275,10 @@ async function renderSubmitQuote(requestId) {
     const user = await Auth.getCurrentUser();
     if (!user || user.role !== 'builder') { navigateTo('login'); return; }
 
-    const request = DB.getById('quote_requests', requestId);
+    const request = await DB.getById('quote_requests', requestId);
     if (!request) { navigateTo('open-requests'); return; }
 
-    const plot = DB.getById('plots', request.plot_id);
+    const plot = await DB.getById('plots', request.plot_id);
 
     const main = document.getElementById('main-content');
     main.innerHTML = `
@@ -339,7 +349,7 @@ async function handleSubmitQuote(event, requestId) {
         status: 'pending'
     };
 
-    DB.insert('quotes', data);
+    await DB.insert('quotes', data);
     showToast('Quote submitted successfully!', 'success');
     navigateTo('builder-quotes');
 }
@@ -349,7 +359,24 @@ async function renderBuilderQuotes() {
     const user = await Auth.getCurrentUser();
     if (!user || user.role !== 'builder') { navigateTo('login'); return; }
 
-    const myQuotes = DB.getByField('quotes', 'builder_id', user.id);
+    const myQuotes = await DB.getByField('quotes', 'builder_id', user.id);
+
+    // Pre-build table rows (async)
+    let tableRowsHtml = '';
+    for (const quote of myQuotes) {
+        const request = await DB.getById('quote_requests', quote.quote_request_id);
+        const plot = request ? await DB.getById('plots', request.plot_id) : null;
+        tableRowsHtml += `
+            <tr>
+                <td>${plot?.title || 'Unknown'}</td>
+                <td>${request?.project_type || 'N/A'}</td>
+                <td>${formatCurrency(quote.amount)}</td>
+                <td>${quote.estimated_days} days</td>
+                <td>${getStatusBadge(quote.status)}</td>
+                <td>${timeAgo(quote.created_at)}</td>
+            </tr>
+        `;
+    }
 
     const main = document.getElementById('main-content');
     main.innerHTML = `
@@ -383,20 +410,7 @@ async function renderBuilderQuotes() {
                                 </tr>
                             </thead>
                             <tbody>
-                                ${myQuotes.map(quote => {
-        const request = DB.getById('quote_requests', quote.quote_request_id);
-        const plot = request ? DB.getById('plots', request.plot_id) : null;
-        return `
-                                        <tr>
-                                            <td>${plot?.title || 'Unknown'}</td>
-                                            <td>${request?.project_type || 'N/A'}</td>
-                                            <td>${formatCurrency(quote.amount)}</td>
-                                            <td>${quote.estimated_days} days</td>
-                                            <td>${getStatusBadge(quote.status)}</td>
-                                            <td>${timeAgo(quote.created_at)}</td>
-                                        </tr>
-                                    `;
-    }).join('')}
+                                ${tableRowsHtml}
                             </tbody>
                         </table>
                     </div>
@@ -413,7 +427,7 @@ async function renderBuilderProfile() {
     if (!user || user.role !== 'builder') { navigateTo('login'); return; }
 
     // Get builder profile from database
-    const profile = DB.getOneByField('builder_profiles', 'user_id', user.id);
+    const profile = await DB.getOneByField('builder_profiles', 'user_id', user.id);
 
     const specializationOptions = [
         'Residential', 'Commercial', 'Industrial', 'Renovation',
