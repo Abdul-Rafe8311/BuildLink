@@ -1,8 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const { body } = require('express-validator');
+const { body, validationResult } = require('express-validator');
 const authController = require('../controllers/authController');
 const { authenticate } = require('../middleware/auth');
+
+const handleValidationErrors = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({
+            success: false,
+            message: errors.array()[0].msg,
+            errors: errors.array()
+        });
+    }
+    next();
+};
 
 // Validation middleware
 const registerValidation = [
@@ -19,8 +31,8 @@ const loginValidation = [
 ];
 
 // Routes
-router.post('/register', registerValidation, authController.register);
-router.post('/login', loginValidation, authController.login);
+router.post('/register', registerValidation, handleValidationErrors, authController.register);
+router.post('/login', loginValidation, handleValidationErrors, authController.login);
 router.post('/refresh', authController.refresh);
 router.post('/logout', authenticate, authController.logout);
 router.get('/me', authenticate, authController.getCurrentUser);

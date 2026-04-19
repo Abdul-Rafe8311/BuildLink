@@ -67,7 +67,19 @@ const APIService = {
 
                 clearTimeout(timeoutId);
 
-                const data = await response.json();
+                const rawText = await response.text();
+                let data = {};
+                if (rawText) {
+                    try {
+                        data = JSON.parse(rawText);
+                    } catch {
+                        throw new Error(
+                            response.ok
+                                ? 'Invalid response from server'
+                                : `Server error (${response.status})`
+                        );
+                    }
+                }
 
                 // Handle token expiration
                 if (response.status === 401 && data.code === 'TOKEN_EXPIRED') {
@@ -90,6 +102,18 @@ const APIService = {
             } catch (error) {
                 if (attempt === maxRetries) {
                     console.error(`API request failed after ${maxRetries} attempts:`, error);
+                    if (error.name === 'AbortError') {
+                        throw new Error('Request timed out. Check that the backend is running.');
+                    }
+                    const netMsg = (error && error.message) || '';
+                    if (
+                        error instanceof TypeError &&
+                        /Failed to fetch|NetworkError|Load failed/i.test(netMsg)
+                    ) {
+                        throw new Error(
+                            'Cannot reach the API. Start the backend (port 5001) and open the site from http://localhost:8000 or http://127.0.0.1:8000.'
+                        );
+                    }
                     throw error;
                 }
 

@@ -1,0 +1,11 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# Create a Web Service from this repo; set MONGO_URI, JWT_SECRET, JWT_REFRESH_SECRET in the dashboard.
+services:
+  - type: web
+    name: buildquote-pro
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: NODE_ENV=production SERVE_FRONTEND=true npm start
+    healthCheckPath: /health
