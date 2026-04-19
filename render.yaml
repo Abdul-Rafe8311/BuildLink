@@ -7,5 +7,5 @@ services:
     plan: free
     rootDir: backend
     buildCommand: npm install
-    startCommand: NODE_ENV=production SERVE_FRONTEND=true npm start
+    startCommand: NODE_ENV=production RENDER=true SERVE_FRONTEND=true npm start
     healthCheckPath: /health

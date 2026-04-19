@@ -1,7 +1,5 @@
 require('dotenv').config();
 
-// JWT is required for login/register. In development, use safe defaults if unset
-// so the app works after `git clone` before editing `.env`.
 const isProduction = process.env.NODE_ENV === 'production';
 if (!process.env.JWT_SECRET) {
     if (isProduction) {
@@ -26,17 +24,14 @@ const cors = require('cors');
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 
-// Import routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const plotRoutes = require('./routes/plots');
 const quoteRoutes = require('./routes/quotes');
 const contactRoutes = require('./routes/contact');
 
-// Initialize app
 const app = express();
 
-// Middleware — CORS (comma-separated FRONTEND_URL / FRONTEND_URLS; common PaaS URLs auto-detected)
 const allowedOrigins = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
@@ -65,23 +60,15 @@ if (process.env.VERCEL_URL) {
 }
 
 const allowedOriginSet = new Set(allowedOrigins.filter(Boolean));
-
 const isDev = process.env.NODE_ENV !== 'production';
 
 app.use(cors({
-    origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
+    origin(origin, callback) {
         if (!origin) return callback(null, true);
-
-        if (allowedOriginSet.has(origin)) {
-            return callback(null, true);
-        }
-
-        // Local dev: same machine often uses 127.0.0.1 vs localhost or different ports
+        if (allowedOriginSet.has(origin)) return callback(null, true);
         if (isDev && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
             return callback(null, true);
         }
-
         console.log('Blocked by CORS:', origin);
         callback(new Error('Not allowed by CORS'));
     },
@@ -91,7 +78,6 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Request logging (development)
 if (process.env.NODE_ENV === 'development') {
     app.use((req, res, next) => {
         console.log(`${req.method} ${req.path}`);
@@ -99,7 +85,7 @@ if (process.env.NODE_ENV === 'development') {
     });
 }
 
-// Health check
+// 1) /health
 app.get('/health', (req, res) => {
     res.json({
         success: true,
@@ -108,38 +94,46 @@ app.get('/health', (req, res) => {
     });
 });
 
-// API Routes
+// 2) /api/*
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/plots', plotRoutes);
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/contact', contactRoutes);
 
-// Production: serve static frontend from repo root (parent of /backend) so one URL hosts UI + /api
-const serveFrontend = process.env.SERVE_FRONTEND === 'true' || process.env.SERVE_FRONTEND === '1';
+const serveFrontendOptOut =
+    process.env.SERVE_FRONTEND === 'false' || process.env.SERVE_FRONTEND === '0';
+const onRender = process.env.RENDER === 'true' || Boolean(process.env.RENDER_SERVICE_ID);
+const serveFrontend =
+    !serveFrontendOptOut &&
+    (process.env.SERVE_FRONTEND === 'true' ||
+        process.env.SERVE_FRONTEND === '1' ||
+        process.env.NODE_ENV === 'production' ||
+        onRender);
+
 if (serveFrontend) {
-    const frontendRoot = path.join(__dirname, '..');
+    const frontendRoot = path.resolve(__dirname, '..');
+    const indexPath = path.join(frontendRoot, 'index.html');
+
     app.use((req, res, next) => {
-        if (req.path.includes('.git')) {
-            return res.status(404).end();
-        }
+        if (req.path.includes('.git')) return res.status(404).end();
         next();
     });
-    app.use(
-        express.static(frontendRoot, {
-            index: ['index.html'],
-            dotfiles: 'ignore'
-        })
-    );
-    app.get(/^\/(?!api\/).*/, (req, res, next) => {
-        if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-        res.sendFile(path.join(frontendRoot, 'index.html'), (err) => {
+
+    // 3) express.static(frontendRoot)
+    app.use(express.static(frontendRoot));
+
+    // 4) SPA fallback — non-/api → index.html
+    app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api')) {
+            return next();
+        }
+        res.sendFile(indexPath, (err) => {
             if (err) next(err);
         });
     });
 }
 
-// 404 handler
 app.use((req, res) => {
     res.status(404).json({
         success: false,
@@ -147,31 +141,24 @@ app.use((req, res) => {
     });
 });
 
-// Error handler (must be last)
+// 5) error handler
 app.use(errorHandler);
 
-// Start server (single DB connection — connectDB already handles mongoose.connect)
-const PORT = Number.parseInt(process.env.PORT, 10) || 5001;
+const PORT = Number(process.env.PORT) || 5001;
 const HOST = process.env.HOST || '0.0.0.0';
 
 connectDB()
     .then(() => {
         app.listen(PORT, HOST, () => {
-            console.log(`🚀 Server running on http://${HOST}:${PORT}`);
-            console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-            console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:8000'}`);
-            if (serveFrontend) {
-                console.log('📁 Serving static frontend from parent directory (SERVE_FRONTEND=true)');
-            }
+            console.log(`Server listening on http://${HOST}:${PORT}`);
         });
     })
     .catch((err) => {
-        console.error('❌ Failed to start server:', err);
+        console.error('Failed to start server:', err);
         process.exit(1);
     });
 
-// Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
-    console.error('❌ Unhandled Promise Rejection:', err);
+    console.error('Unhandled Promise Rejection:', err);
     process.exit(1);
 });
