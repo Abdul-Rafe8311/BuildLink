@@ -100,25 +100,28 @@ const APIService = {
                 return data;
 
             } catch (error) {
-                if (attempt === maxRetries) {
-                    console.error(`API request failed after ${maxRetries} attempts:`, error);
-                    if (error.name === 'AbortError') {
-                        throw new Error('Request timed out. Check that the backend is running.');
-                    }
-                    const netMsg = (error && error.message) || '';
-                    if (
-                        error instanceof TypeError &&
-                        /Failed to fetch|NetworkError|Load failed/i.test(netMsg)
-                    ) {
-                        throw new Error(
-                            'Cannot reach the API. Start the backend (port 5001) and open the site from http://localhost:8000 or http://127.0.0.1:8000.'
-                        );
-                    }
-                    throw error;
+                const isTimeout = error.name === 'AbortError';
+                const netMsg = (error && error.message) || '';
+                const isNetworkError = error instanceof TypeError &&
+                    /Failed to fetch|NetworkError|Load failed/i.test(netMsg);
+
+                if (isTimeout) {
+                    throw new Error('Request timed out. Check that the backend is running.');
                 }
 
-                // Wait before retry
-                await this.delay(Config.api.retryDelay * attempt);
+                if (isNetworkError) {
+                    if (attempt < maxRetries) {
+                        await this.delay(Config.api.retryDelay * attempt);
+                        continue;
+                    }
+                    throw new Error(
+                        'Cannot reach the API. Start the backend (port 5001) and open the site from http://localhost:8000 or http://127.0.0.1:8000.'
+                    );
+                }
+
+                // HTTP errors (wrong credentials, validation, etc.) — fail immediately, no retry
+                console.error('API request failed:', error);
+                throw error;
             }
         }
     },

@@ -27,8 +27,8 @@ const Config = {
         }
     },
     features: {
-        useBackend: true,
-        useLocalStorageFallback: false,
+        useBackend: false,
+        useLocalStorageFallback: true,
         enableRealtime: false,
         enableEmailVerification: false
     },
