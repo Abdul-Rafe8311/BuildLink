@@ -494,8 +494,8 @@ function addBudgetAdvisorStyles() {
         }
 
         .api-key-card {
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
-            border: 1px solid rgba(99, 102, 241, 0.3);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.08));
+            border: 1px solid rgba(16, 185, 129, 0.3);
         }
 
         .api-setup-header {
@@ -564,7 +564,7 @@ function addBudgetAdvisorStyles() {
 
         .plot-select-card.selected {
             border-color: var(--primary);
-            background: rgba(99, 102, 241, 0.1);
+            background: rgba(16, 185, 129, 0.1);
         }
 
         .plot-select-icon {
@@ -659,7 +659,7 @@ function addBudgetAdvisorStyles() {
 
         .loading-steps .step.active {
             opacity: 1;
-            background: rgba(99, 102, 241, 0.2);
+            background: rgba(16, 185, 129, 0.15);
         }
 
         /* Result Styles */
@@ -730,7 +730,7 @@ function addBudgetAdvisorStyles() {
             top: 0;
             bottom: 0;
             width: var(--percentage);
-            background: linear-gradient(90deg, rgba(99, 102, 241, 0.2), rgba(99, 102, 241, 0.05));
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.18), rgba(16, 185, 129, 0.04));
         }
 
         .breakdown-info {
@@ -872,8 +872,8 @@ function addBudgetAdvisorStyles() {
 
         /* Advice Card */
         .advice-card {
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
-            border: 1px solid rgba(99, 102, 241, 0.3);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.08));
+            border: 1px solid rgba(16, 185, 129, 0.3);
         }
 
         .overall-advice, .market-insights {

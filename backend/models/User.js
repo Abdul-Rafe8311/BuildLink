@@ -1,120 +1,86 @@
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const bcrypt   = require('bcryptjs');
+
+const ROLE_MAP = {
+    customer:    'owner',
+    builder:     'constructor',
+    owner:       'owner',
+    constructor: 'constructor',
+    admin:       'admin'
+};
 
 const userSchema = new mongoose.Schema({
-    email: {
-        type: String,
-        required: [true, 'Email is required'],
-        unique: true,
-        lowercase: true,
-        trim: true,
-        match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email']
-    },
-    password: {
-        type: String,
-        required: [true, 'Password is required'],
-        minlength: [6, 'Password must be at least 6 characters']
-    },
-    role: {
-        type: String,
-        enum: ['customer', 'builder'],
-        required: [true, 'Role is required']
-    },
+    email:        { type: String, required: true, unique: true, lowercase: true, trim: true },
+    password:     { type: String, required: true, select: false },
+    role:         { type: String, enum: ['owner', 'constructor', 'admin'], required: true },
+    firstName:    { type: String, required: true, trim: true },
+    lastName:     { type: String, required: true, trim: true },
+    phone:        { type: String, default: null },
+    isActive:     { type: Boolean, default: true },
+    isVerified:   { type: Boolean, default: false },
+    trustScore:   { type: Number,  default: 0 },
+    refreshToken: { type: String,  default: null, select: false },
 
-    // Common fields
-    firstName: {
-        type: String,
-        required: [true, 'First name is required'],
-        trim: true
-    },
-    lastName: {
-        type: String,
-        required: [true, 'Last name is required'],
-        trim: true
-    },
-    phone: {
-        type: String,
-        trim: true
-    },
+    // Constructor-specific
+    companyName:          { type: String, default: null },
+    licenseNumber:        { type: String, default: null },
+    yearsExperience:      { type: Number, default: 0 },
+    bio:                  { type: String, default: null },
+    website:              { type: String, default: null },
+    minimumProjectBudget: { type: Number, default: null }
+}, { timestamps: true });
 
-    // Builder-specific fields
-    companyName: {
-        type: String,
-        trim: true,
-        required: function () { return this.role === 'builder'; }
-    },
-    licenseNumber: {
-        type: String,
-        trim: true,
-        required: function () { return this.role === 'builder'; }
-    },
-    yearsExperience: {
-        type: Number,
-        min: 0,
-        required: function () { return this.role === 'builder'; }
-    },
-    specializations: [{
-        type: String,
-        trim: true
-    }],
-    serviceAreas: [{
-        type: String,
-        trim: true
-    }],
-    bio: {
-        type: String,
-        trim: true
-    },
-    website: {
-        type: String,
-        trim: true
-    },
-
-    // Status and verification
-    isVerified: {
-        type: Boolean,
-        default: false
-    },
-    isActive: {
-        type: Boolean,
-        default: true
-    },
-
-    // Refresh token for JWT
-    refreshToken: {
-        type: String
-    }
-}, {
-    timestamps: true
+// Virtual: expose _id as user_id so controllers keep working unchanged
+userSchema.virtual('user_id').get(function () {
+    return this._id;
 });
 
-// Hash password before saving
+userSchema.set('toJSON',   { virtuals: true });
+userSchema.set('toObject', { virtuals: true });
+
+// Hash password before save
 userSchema.pre('save', async function (next) {
-    // Only hash if password is modified
-    if (!this.isModified('password')) {
-        return next();
-    }
-
-    try {
-        const salt = await bcrypt.genSalt(10);
-        this.password = await bcrypt.hash(this.password, salt);
-        next();
-    } catch (error) {
-        next(error);
-    }
+    if (!this.isModified('password')) return next();
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
 });
 
-// Method to compare password
-userSchema.methods.comparePassword = async function (candidatePassword) {
-    return await bcrypt.compare(candidatePassword, this.password);
+userSchema.methods.comparePassword = function (candidate) {
+    return bcrypt.compare(candidate, this.password);
 };
 
-// Method to get public profile
 userSchema.methods.getPublicProfile = function () {
-    const user = this.toObject();
-    delete user.password;
-    delete user.refreshToken;
-    return user;
+    const obj = this.toObject();
+    delete obj.password;
+    delete obj.refreshToken;
+    return obj;
 };
 
-module.exports = mongoose.model('User', userSchema);
+// Static helpers
+userSchema.statics.findByIdWithPassword = function (id) {
+    return this.findById(id).select('+password +refreshToken');
+};
+
+userSchema.statics.findByEmailWithPassword = function (email) {
+    return this.findOne({ email }).select('+password');
+};
+
+userSchema.statics.updateRefreshToken = function (userId, token) {
+    return this.findByIdAndUpdate(userId, { refreshToken: token });
+};
+
+userSchema.statics.findConstructorById = function (id) {
+    return this.findOne({ _id: id, role: 'constructor', isActive: true });
+};
+
+// create() with role mapping
+userSchema.statics.createUser = async function (data) {
+    const roleName = ROLE_MAP[data.role] || data.role;
+    const user = new this({ ...data, role: roleName });
+    await user.save();
+    return this.findById(user._id); // re-fetch without password
+};
+
+const User = mongoose.model('User', userSchema);
+module.exports = User;

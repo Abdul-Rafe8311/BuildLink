@@ -23,7 +23,7 @@
 }
 
 .notification-bell:hover {
-    background: rgba(var(--primary-rgb, 139, 92, 246), 0.2);
+    background: rgba(16, 185, 129, 0.18);
     transform: scale(1.05);
 }
 
@@ -124,11 +124,11 @@
 }
 
 .notification-item:hover {
-    background: rgba(139, 92, 246, 0.1);
+    background: rgba(16, 185, 129, 0.1);
 }
 
 .notification-item.unread {
-    background: rgba(139, 92, 246, 0.05);
+    background: rgba(16, 185, 129, 0.05);
 }
 
 .notification-item.unread::before {
@@ -289,7 +289,7 @@
 
 .search-result-item:hover,
 .search-result-item.selected {
-    background: rgba(139, 92, 246, 0.15);
+    background: rgba(16, 185, 129, 0.15);
 }
 
 .search-result-item .result-icon {
@@ -1096,7 +1096,7 @@
 .milestone.current .milestone-dot {
     background: var(--primary-500);
     border-color: var(--primary-500);
-    box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
     animation: pulseDot 1.5s ease-in-out infinite;
 }
 

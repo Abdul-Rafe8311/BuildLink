@@ -1,39 +1,19 @@
 const mongoose = require('mongoose');
 
 const connectDB = async () => {
-    try {
-        const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
-        if (!mongoUri) {
-            throw new Error('Set MONGO_URI or MONGODB_URI in backend/.env (see .env.example)');
-        }
-
-        const conn = await mongoose.connect(mongoUri, {
-            // These options are no longer needed in Mongoose 6+
-            // but included for compatibility
-        });
-
-        console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-
-        // Handle connection events
-        mongoose.connection.on('error', (err) => {
-            console.error('❌ MongoDB connection error:', err);
-        });
-
-        mongoose.connection.on('disconnected', () => {
-            console.log('⚠️  MongoDB disconnected');
-        });
-
-        // Graceful shutdown
-        process.on('SIGINT', async () => {
-            await mongoose.connection.close();
-            console.log('MongoDB connection closed through app termination');
-            process.exit(0);
-        });
-
-    } catch (error) {
-        console.error('❌ Error connecting to MongoDB:', error.message);
-        throw error;
+    const uri = process.env.MONGO_URI;
+    if (!uri) {
+        throw new Error('MONGO_URI is not set in environment variables');
     }
+
+    await mongoose.connect(uri);
+    console.log(`✅ MongoDB Connected: ${mongoose.connection.host}`);
+
+    process.on('SIGINT', async () => {
+        await mongoose.connection.close();
+        console.log('MongoDB connection closed');
+        process.exit(0);
+    });
 };
 
 module.exports = connectDB;

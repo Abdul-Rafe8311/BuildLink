@@ -20,7 +20,7 @@ const handleValidationErrors = (req, res, next) => {
 const registerValidation = [
     body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-    body('role').isIn(['customer', 'builder']).withMessage('Role must be customer or builder'),
+    body('role').isIn(['owner', 'constructor', 'customer', 'builder']).withMessage('Role must be owner or constructor'),
     body('firstName').trim().notEmpty().withMessage('First name is required'),
     body('lastName').trim().notEmpty().withMessage('Last name is required')
 ];

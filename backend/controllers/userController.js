@@ -1,130 +1,78 @@
 const User = require('../models/User');
 
-/**
- * Get user profile
- * GET /api/users/profile
- */
 exports.getProfile = async (req, res, next) => {
     try {
-        res.json({
-            success: true,
-            data: {
-                user: req.user.getPublicProfile()
-            }
-        });
-    } catch (error) {
-        next(error);
+        res.json({ success: true, data: { user: req.user.getPublicProfile() } });
+    } catch (err) {
+        next(err);
     }
 };
 
-/**
- * Update user profile
- * PUT /api/users/profile
- */
 exports.updateProfile = async (req, res, next) => {
     try {
-        const allowedUpdates = ['firstName', 'lastName', 'phone', 'bio', 'website'];
-        const builderUpdates = ['companyName', 'specializations', 'serviceAreas'];
+        const allowed = ['firstName', 'lastName', 'phone'];
+        const constructorOnly = ['companyName', 'bio', 'website'];
 
-        // Filter allowed fields
         const updates = {};
-        Object.keys(req.body).forEach(key => {
-            if (allowedUpdates.includes(key)) {
-                updates[key] = req.body[key];
+        for (const key of allowed) {
+            if (req.body[key] !== undefined) updates[key] = req.body[key];
+        }
+        if (req.user.role === 'constructor') {
+            for (const key of constructorOnly) {
+                if (req.body[key] !== undefined) updates[key] = req.body[key];
             }
-            if (req.user.role === 'builder' && builderUpdates.includes(key)) {
-                updates[key] = req.body[key];
-            }
-        });
+        }
 
-        // Update user
-        Object.assign(req.user, updates);
-        await req.user.save();
-
-        res.json({
-            success: true,
-            message: 'Profile updated successfully',
-            data: {
-                user: req.user.getPublicProfile()
-            }
-        });
-
-    } catch (error) {
-        next(error);
+        const updated = await User.findByIdAndUpdate(req.user._id, updates, { new: true });
+        res.json({ success: true, message: 'Profile updated successfully', data: { user: updated.getPublicProfile() } });
+    } catch (err) {
+        next(err);
     }
 };
 
-/**
- * Get all builders (public)
- * GET /api/users/builders
- */
 exports.getBuilders = async (req, res, next) => {
     try {
         const { page = 1, limit = 10, specialization, serviceArea } = req.query;
 
-        const query = { role: 'builder', isActive: true };
-
-        if (specialization) {
-            query.specializations = { $in: [specialization] };
-        }
-
+        const filter = { role: 'constructor', isActive: true };
+        if (specialization) filter.specializations = specialization;
         if (serviceArea) {
-            query.serviceAreas = { $in: [serviceArea] };
+            filter.$or = [
+                { city: new RegExp(serviceArea, 'i') },
+                { province: new RegExp(serviceArea, 'i') }
+            ];
         }
 
-        const builders = await User.find(query)
-            .select('-password -refreshToken')
-            .sort({ createdAt: -1 })
-            .limit(limit * 1)
-            .skip((page - 1) * limit);
-
-        const total = await User.countDocuments(query);
+        const skip  = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+        const total = await User.countDocuments(filter);
+        const docs  = await User.find(filter)
+            .skip(skip)
+            .limit(parseInt(limit, 10))
+            .sort({ createdAt: -1 });
 
         res.json({
             success: true,
             data: {
-                builders,
+                builders: docs.map(u => u.getPublicProfile()),
                 pagination: {
-                    page: parseInt(page),
-                    limit: parseInt(limit),
+                    page:  parseInt(page, 10),
+                    limit: parseInt(limit, 10),
                     total,
-                    pages: Math.ceil(total / limit)
+                    pages: Math.ceil(total / parseInt(limit, 10))
                 }
             }
         });
-
-    } catch (error) {
-        next(error);
+    } catch (err) {
+        next(err);
     }
 };
 
-/**
- * Get builder by ID (public)
- * GET /api/users/builders/:id
- */
 exports.getBuilderById = async (req, res, next) => {
     try {
-        const builder = await User.findOne({
-            _id: req.params.id,
-            role: 'builder',
-            isActive: true
-        }).select('-password -refreshToken');
-
-        if (!builder) {
-            return res.status(404).json({
-                success: false,
-                message: 'Builder not found'
-            });
-        }
-
-        res.json({
-            success: true,
-            data: {
-                builder
-            }
-        });
-
-    } catch (error) {
-        next(error);
+        const builder = await User.findConstructorById(req.params.id);
+        if (!builder) return res.status(404).json({ success: false, message: 'Constructor not found' });
+        res.json({ success: true, data: { builder: builder.getPublicProfile() } });
+    } catch (err) {
+        next(err);
     }
 };

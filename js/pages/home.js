@@ -48,44 +48,42 @@ function renderHomePage() {
                     </div>
                 </div>
                 <div class="hero-visual">
-                    <div class="hero-features-grid">
-                        <div class="card feature-highlight-card glass-card animate-fadeInUp">
-                            <div class="feature-icon-wrapper">
-                                <div class="feature-icon">🤖</div>
-                                <div class="feature-glow"></div>
+                    <div class="hero-3d-scene neon-border">
+                        <canvas id="hero-canvas"></canvas>
+                        <div class="canvas-labels">
+                            <div class="canvas-label c-lbl-1">
+                                <span class="clbl-icon">🏗️</span>
+                                <div>
+                                    <span class="clbl-value">247</span>
+                                    <span class="clbl-text">Projects</span>
+                                </div>
                             </div>
-                            <h4>AI-Powered Matching</h4>
-                            <p>Smart algorithms match you with the perfect builders for your project</p>
-                        </div>
-                        <div class="card feature-highlight-card glass-card animate-fadeInUp delay-100">
-                            <div class="feature-icon-wrapper">
-                                <div class="feature-icon">⚡</div>
-                                <div class="feature-glow"></div>
+                            <div class="canvas-label c-lbl-2">
+                                <span class="clbl-icon">⭐</span>
+                                <div>
+                                    <span class="clbl-value">4.9</span>
+                                    <span class="clbl-text">Rating</span>
+                                </div>
                             </div>
-                            <h4>Instant Quotes</h4>
-                            <p>Get competitive quotes from verified builders in hours, not weeks</p>
-                        </div>
-                        <div class="card feature-highlight-card glass-card animate-fadeInUp delay-200">
-                            <div class="feature-icon-wrapper">
-                                <div class="feature-icon">🔒</div>
-                                <div class="feature-glow"></div>
+                            <div class="canvas-label c-lbl-3">
+                                <span class="clbl-icon">👷</span>
+                                <div>
+                                    <span class="clbl-value">83</span>
+                                    <span class="clbl-text">Builders</span>
+                                </div>
                             </div>
-                            <h4>Secure Payments</h4>
-                            <p>Protected transactions with milestone-based payment system</p>
-                        </div>
-                        <div class="card feature-highlight-card glass-card animate-fadeInUp delay-300">
-                            <div class="feature-icon-wrapper">
-                                <div class="feature-icon">💬</div>
-                                <div class="feature-glow"></div>
+                            <div class="canvas-label c-lbl-4">
+                                <span class="clbl-icon">💰</span>
+                                <div>
+                                    <span class="clbl-value">$2M+</span>
+                                    <span class="clbl-text">Saved</span>
+                                </div>
                             </div>
-                            <h4>24/7 Support</h4>
-                            <p>Expert assistance whenever you need it throughout your project</p>
                         </div>
-                    </div>
-                    <div class="floating-elements">
-                        <div class="floating-card fc-1">💡 New Quote!</div>
-                        <div class="floating-card fc-2">✓ Project Completed</div>
-                        <div class="floating-card fc-3">🏆 Top Rated</div>
+                        <div class="canvas-fallback" id="canvas-fallback">
+                            <div class="fb-building">🏢</div>
+                            <p>3D view unavailable</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -338,6 +336,11 @@ function renderHomePage() {
     initCounters();
     initScrollAnimations();
     initTestimonialSlider();
+
+    // Launch 3D building scene after the DOM has painted
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (window.BL3D) BL3D.initBuildingScene();
+    }));
 }
 
 // Render testimonials
@@ -636,7 +639,7 @@ function addEnhancedHomeStyles() {
             position: absolute;
             width: 4px;
             height: 4px;
-            background: rgba(139, 92, 246, 0.3);
+            background: rgba(16, 185, 129, 0.25);
             border-radius: 50%;
             animation: particleFloat linear infinite;
         }
@@ -668,13 +671,15 @@ function addEnhancedHomeStyles() {
             display: inline-flex;
             align-items: center;
             gap: var(--space-2);
-            padding: var(--space-2) var(--space-4);
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.1));
-            border: 1px solid rgba(139, 92, 246, 0.3);
+            padding: var(--space-2) var(--space-5);
+            background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,182,212,0.07));
+            border: 1px solid rgba(16,185,129,0.38);
             border-radius: var(--radius-full);
             font-size: var(--font-size-sm);
             color: var(--primary-300);
             margin-bottom: var(--space-6);
+            box-shadow: 0 0 24px rgba(16,185,129,0.18), inset 0 1px 0 rgba(255,255,255,0.06);
+            backdrop-filter: blur(12px);
         }
 
         .badge-glow {
@@ -795,7 +800,7 @@ function addEnhancedHomeStyles() {
             transform: translate(-50%, -50%);
             width: 80px;
             height: 80px;
-            background: radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.15) 0%, transparent 70%);
             animation: pulseGlow 3s ease-in-out infinite;
             pointer-events: none;
         }
@@ -932,19 +937,20 @@ function addEnhancedHomeStyles() {
             color: var(--primary-400);
         }
 
-        /* Section Badge */
+        /* Section Badge — gold accent */
         .section-badge {
             display: inline-block;
             padding: var(--space-2) var(--space-4);
-            background: rgba(139, 92, 246, 0.1);
-            border: 1px solid rgba(139, 92, 246, 0.2);
+            background: linear-gradient(135deg, rgba(245,158,11,0.12), rgba(16,185,129,0.08));
+            border: 1px solid rgba(245,158,11,0.35);
             border-radius: var(--radius-full);
             font-size: var(--font-size-xs);
-            font-weight: 600;
-            color: var(--primary-400);
+            font-weight: 700;
+            color: #f59e0b;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.12em;
             margin-bottom: var(--space-4);
+            box-shadow: 0 0 14px rgba(245,158,11,0.15);
         }
 
         /* Features Enhanced */
@@ -959,7 +965,8 @@ function addEnhancedHomeStyles() {
             left: 10%;
             right: 10%;
             height: 2px;
-            background: linear-gradient(90deg, var(--primary-600), var(--accent-500), var(--primary-600));
+            background: linear-gradient(90deg, transparent, #10b981 20%, #06b6d4 50%, #f59e0b 80%, transparent);
+            box-shadow: 0 0 12px rgba(16,185,129,0.4), 0 0 24px rgba(6,182,212,0.2);
         }
 
         @media (min-width: 968px) {
@@ -980,7 +987,7 @@ function addEnhancedHomeStyles() {
             right: var(--space-4);
             font-size: var(--font-size-2xl);
             font-weight: 800;
-            color: rgba(139, 92, 246, 0.2);
+            color: rgba(16, 185, 129, 0.15);
         }
 
         .feature-card .icon {
@@ -999,7 +1006,7 @@ function addEnhancedHomeStyles() {
         .icon-ring {
             position: absolute;
             inset: -5px;
-            border: 2px dashed rgba(139, 92, 246, 0.3);
+            border: 2px dashed rgba(16, 185, 129, 0.25);
             border-radius: var(--radius-2xl);
             animation: spinSlow 20s linear infinite;
         }
@@ -1128,7 +1135,7 @@ function addEnhancedHomeStyles() {
 
         .progress-bar {
             height: 8px;
-            background: rgba(139, 92, 246, 0.2);
+            background: rgba(16, 185, 129, 0.15);
             border-radius: var(--radius-full);
             overflow: hidden;
         }
@@ -1284,7 +1291,7 @@ function addEnhancedHomeStyles() {
         /* Platform Benefits */
         .benefits-section {
             padding: var(--space-24) 0;
-            background: linear-gradient(180deg, transparent 0%, rgba(139, 92, 246, 0.03) 100%);
+            background: linear-gradient(180deg, transparent 0%, rgba(16, 185, 129, 0.04) 100%);
         }
 
         .benefits-grid {
@@ -1413,7 +1420,7 @@ function addEnhancedHomeStyles() {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(139, 92, 246, 0.1);
+            background: rgba(16, 185, 129, 0.1);
             border-radius: 50%;
             color: var(--primary-400);
             transition: all var(--transition-base);
@@ -1455,8 +1462,21 @@ function addEnhancedHomeStyles() {
         .cta-background {
             position: absolute;
             inset: 0;
-            background: var(--gradient-primary);
-            opacity: 0.1;
+            background: radial-gradient(ellipse at 30% 50%, rgba(16,185,129,0.15) 0%, transparent 60%),
+                        radial-gradient(ellipse at 70% 50%, rgba(245,158,11,0.1) 0%, transparent 60%);
+        }
+        .cta-background::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg,
+                transparent 0%, rgba(16,185,129,0.06) 25%,
+                rgba(245,158,11,0.06) 75%, transparent 100%);
+            animation: ctaSweep 8s ease-in-out infinite;
+        }
+        @keyframes ctaSweep {
+            0%,100% { opacity:0.5; }
+            50%      { opacity:1; }
         }
 
         .cta-icon {
