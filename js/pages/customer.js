@@ -6,7 +6,7 @@
 async function renderCustomerDashboard() {
     const user = await Auth.getCurrentUser();
 
-    if (!user || user.role !== 'customer') {
+    if (!user || user.role !== 'customer' && user.role !== 'owner') {
         navigateTo('login');
         return;
     }
@@ -197,7 +197,7 @@ async function renderPlotCard(plot) {
 // My Plots Page
 async function renderMyPlots() {
     const user = await Auth.getCurrentUser();
-    if (!user || user.role !== 'customer') { navigateTo('login'); return; }
+    if (!user || user.role !== 'customer' && user.role !== 'owner') { navigateTo('login'); return; }
 
     const plots = await DB.getByField('plots', 'customer_id', user.id);
 
@@ -238,7 +238,7 @@ async function renderMyPlots() {
 // Add/Edit Plot Page
 async function renderPlotForm(plotId = null) {
     const user = await Auth.getCurrentUser();
-    if (!user || user.role !== 'customer') { navigateTo('login'); return; }
+    if (!user || user.role !== 'customer' && user.role !== 'owner') { navigateTo('login'); return; }
 
     const plot = plotId ? await DB.getById('plots', plotId) : null;
     const isEdit = !!plot;
@@ -339,7 +339,7 @@ async function handlePlotSubmit(event, plotId) {
 // Request Quote Page
 async function renderRequestQuote(plotId) {
     const user = await Auth.getCurrentUser();
-    if (!user || user.role !== 'customer') { navigateTo('login'); return; }
+    if (!user || user.role !== 'customer' && user.role !== 'owner') { navigateTo('login'); return; }
 
     const plot = await DB.getById('plots', plotId);
     if (!plot) { navigateTo('my-plots'); return; }
@@ -426,7 +426,7 @@ async function handleQuoteRequest(event, plotId) {
 // My Quotes Page
 async function renderMyQuotes() {
     const user = await Auth.getCurrentUser();
-    if (!user || user.role !== 'customer') { navigateTo('login'); return; }
+    if (!user || user.role !== 'customer' && user.role !== 'owner') { navigateTo('login'); return; }
 
     const quoteRequests = await DB.getByField('quote_requests', 'customer_id', user.id);
 
@@ -507,7 +507,7 @@ async function renderQuoteRequestCard(request) {
 // View Quotes for a Request
 async function renderViewQuotes(requestId) {
     const user = await Auth.getCurrentUser();
-    if (!user || user.role !== 'customer') { navigateTo('login'); return; }
+    if (!user || user.role !== 'customer' && user.role !== 'owner') { navigateTo('login'); return; }
 
     const request = await DB.getById('quote_requests', requestId);
     if (!request) { navigateTo('my-quotes'); return; }

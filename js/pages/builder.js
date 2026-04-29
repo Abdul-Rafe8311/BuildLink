@@ -6,7 +6,7 @@
 async function renderBuilderDashboard() {
     const user = await Auth.getCurrentUser();
 
-    if (!user || user.role !== 'builder') {
+    if (!user || user.role !== 'builder' && user.role !== 'constructor') {
         navigateTo('login');
         return;
     }
@@ -131,7 +131,7 @@ function renderBuilderSidebar(active) {
 // Open Quote Requests Page
 async function renderOpenRequests() {
     const user = await Auth.getCurrentUser();
-    if (!user || user.role !== 'builder') { navigateTo('login'); return; }
+    if (!user || user.role !== 'builder' && user.role !== 'constructor') { navigateTo('login'); return; }
 
     // Get all open quote requests that builder hasn't quoted on yet
     const allRequests = await DB.getByField('quote_requests', 'status', 'open');
@@ -273,7 +273,7 @@ async function viewRequestDetails(requestId) {
 // Submit Quote Page
 async function renderSubmitQuote(requestId) {
     const user = await Auth.getCurrentUser();
-    if (!user || user.role !== 'builder') { navigateTo('login'); return; }
+    if (!user || user.role !== 'builder' && user.role !== 'constructor') { navigateTo('login'); return; }
 
     const request = await DB.getById('quote_requests', requestId);
     if (!request) { navigateTo('open-requests'); return; }
@@ -357,7 +357,7 @@ async function handleSubmitQuote(event, requestId) {
 // Builder's Quotes Page
 async function renderBuilderQuotes() {
     const user = await Auth.getCurrentUser();
-    if (!user || user.role !== 'builder') { navigateTo('login'); return; }
+    if (!user || user.role !== 'builder' && user.role !== 'constructor') { navigateTo('login'); return; }
 
     const myQuotes = await DB.getByField('quotes', 'builder_id', user.id);
 
@@ -424,7 +424,7 @@ async function renderBuilderQuotes() {
 // Builder Profile Page
 async function renderBuilderProfile() {
     const user = await Auth.getCurrentUser();
-    if (!user || user.role !== 'builder') { navigateTo('login'); return; }
+    if (!user || user.role !== 'builder' && user.role !== 'constructor') { navigateTo('login'); return; }
 
     // Get builder profile from database
     const profile = await DB.getOneByField('builder_profiles', 'user_id', user.id);
