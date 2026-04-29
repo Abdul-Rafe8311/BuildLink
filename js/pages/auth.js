@@ -49,9 +49,9 @@ async function handleLogin(event) {
         showToast('Welcome back!', 'success');
 
         // Redirect based on role
-        if (user.role === 'customer') {
+        if (user.role === 'customer' || user.role === 'owner') {
             navigateTo('customer-dashboard');
-        } else if (user.role === 'builder') {
+        } else if (user.role === 'builder' || user.role === 'constructor') {
             navigateTo('builder-dashboard');
         }
     } catch (error) {

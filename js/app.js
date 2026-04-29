@@ -112,7 +112,7 @@ async function updateNavigation() {
             ? `${user.firstName} ${user.lastName}`
             : user.email;
 
-        const dashboardPage = user.role === 'customer'
+        const dashboardPage = (user.role === 'customer' || user.role === 'owner')
             ? 'customer-dashboard'
             : 'builder-dashboard';
 
@@ -200,9 +200,9 @@ async function initApp() {
         // Check if user is logged in and redirect appropriately
         const user = await Auth.getCurrentUser();
         if (user) {
-            if (user.role === 'customer') {
+            if (user.role === 'customer' || user.role === 'owner') {
                 navigateTo('customer-dashboard');
-            } else if (user.role === 'builder') {
+            } else if (user.role === 'builder' || user.role === 'constructor') {
                 navigateTo('builder-dashboard');
             }
         } else {
