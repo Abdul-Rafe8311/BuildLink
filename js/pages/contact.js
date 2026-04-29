@@ -25,31 +25,6 @@ function renderContactPage() {
                         </p>
 
                         <div class="contact-info-item">
-                            <div class="icon">📧</div>
-                            <div>
-                                <h4>Email Us</h4>
-                                <p><a href="mailto:hello@buildquotepro.com">hello@buildquotepro.com</a></p>
-                            </div>
-                        </div>
-
-                        <div class="contact-info-item">
-                            <div class="icon">📞</div>
-                            <div>
-                                <h4>Call Us</h4>
-                                <p><a href="tel:+1-800-BUILD-PRO">+1-800-BUILD-PRO</a></p>
-                                <p style="font-size: var(--font-size-xs);">Mon-Fri 9AM-6PM EST</p>
-                            </div>
-                        </div>
-
-                        <div class="contact-info-item">
-                            <div class="icon">📍</div>
-                            <div>
-                                <h4>Visit Us</h4>
-                                <p>123 Construction Avenue<br>Suite 500<br>New York, NY 10001</p>
-                            </div>
-                        </div>
-
-                        <div class="contact-info-item">
                             <div class="icon">💬</div>
                             <div>
                                 <h4>Live Chat</h4>

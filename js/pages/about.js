@@ -79,41 +79,6 @@ function renderAboutPage() {
                     </div>
                 </div>
 
-                <!-- Team Section -->
-                <div class="team-section">
-                    <div class="section-header text-center">
-                        <span class="section-badge">Leadership</span>
-                        <h2>Meet Our <span class="text-gradient">Team</span></h2>
-                        <p>The people behind BuildQuote Pro's success</p>
-                    </div>
-                    <div class="team-grid">
-                        <div class="team-card animate-on-scroll">
-                            <div class="team-avatar">JM</div>
-                            <h4>James Morrison</h4>
-                            <div class="role">CEO & Co-Founder</div>
-                            <p>Former construction manager with 15 years of industry experience. Passionate about bringing tech to traditional industries.</p>
-                        </div>
-                        <div class="team-card animate-on-scroll">
-                            <div class="team-avatar">SC</div>
-                            <h4>Sarah Chen</h4>
-                            <div class="role">CTO & Co-Founder</div>
-                            <p>Ex-Google engineer specializing in marketplace platforms. Built scalable systems serving millions of users.</p>
-                        </div>
-                        <div class="team-card animate-on-scroll">
-                            <div class="team-avatar">MR</div>
-                            <h4>Michael Rodriguez</h4>
-                            <div class="role">VP of Operations</div>
-                            <p>Operations expert who previously scaled logistics for a Fortune 500 company. Ensures smooth builder onboarding.</p>
-                        </div>
-                        <div class="team-card animate-on-scroll">
-                            <div class="team-avatar">AP</div>
-                            <h4>Aisha Patel</h4>
-                            <div class="role">Head of Customer Success</div>
-                            <p>Customer experience specialist dedicated to making every interaction memorable and helpful.</p>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Values Section -->
                 <div class="values-section">
                     <div class="section-header text-center" style="margin-bottom: var(--space-8);">
