@@ -72,14 +72,40 @@ function hideLoading() {
     if (loader) loader.remove();
 }
 
-// Format currency
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-    }).format(amount);
+// Supported currencies — shown in the quote-request form picker.
+// Each entry is the ISO 4217 code that Intl.NumberFormat understands.
+const SUPPORTED_CURRENCIES = [
+    { code: 'USD', label: 'US Dollar (USD $)' },
+    { code: 'EUR', label: 'Euro (EUR €)' },
+    { code: 'GBP', label: 'British Pound (GBP £)' },
+    { code: 'PKR', label: 'Pakistani Rupee (PKR ₨)' },
+    { code: 'INR', label: 'Indian Rupee (INR ₹)' },
+    { code: 'AED', label: 'UAE Dirham (AED د.إ)' },
+    { code: 'SAR', label: 'Saudi Riyal (SAR ﷼)' },
+    { code: 'CAD', label: 'Canadian Dollar (CAD $)' },
+    { code: 'AUD', label: 'Australian Dollar (AUD $)' },
+    { code: 'JPY', label: 'Japanese Yen (JPY ¥)' },
+    { code: 'CNY', label: 'Chinese Yuan (CNY ¥)' },
+    { code: 'TRY', label: 'Turkish Lira (TRY ₺)' },
+    { code: 'BDT', label: 'Bangladeshi Taka (BDT ৳)' },
+    { code: 'NGN', label: 'Nigerian Naira (NGN ₦)' },
+    { code: 'ZAR', label: 'South African Rand (ZAR R)' }
+];
+
+// Format currency. Pass an ISO code as the second arg ('USD' default).
+// Falls back to '<CODE> 1234' if the runtime doesn't support the currency.
+function formatCurrency(amount, currency = 'USD') {
+    const value = Number(amount) || 0;
+    try {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: currency || 'USD',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(value);
+    } catch (_) {
+        return `${currency} ${value.toLocaleString()}`;
+    }
 }
 
 // Format date

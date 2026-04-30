@@ -193,8 +193,9 @@ async function renderOpenRequestCard(request) {
     const projectType = request.projectType || request.project_type || '';
     const region = plot?.province || plot?.state || '';
     const area = (plot?.length && plot?.width) ? plot.length * plot.width : null;
+    const currency = request.currency || 'USD';
     const budgetText = (request.budgetMin || request.budgetMax)
-        ? `$${(request.budgetMin || 0).toLocaleString()} - $${(request.budgetMax || 0).toLocaleString()}`
+        ? `${formatCurrency(request.budgetMin || 0, currency)} - ${formatCurrency(request.budgetMax || 0, currency)}`
         : (request.budget_range || 'Not specified');
     const description = request.description || request.requirements || '';
     const createdAt = request.createdAt || request.created_at;
@@ -257,8 +258,9 @@ async function viewRequestDetails(requestId) {
     const projectType = request.projectType || request.project_type || '';
     const region      = plot?.province || plot?.state || '';
     const area        = (plot?.length && plot?.width) ? plot.length * plot.width : null;
+    const currency    = request.currency || 'USD';
     const budgetText  = (request.budgetMin || request.budgetMax)
-        ? `$${(request.budgetMin || 0).toLocaleString()} - $${(request.budgetMax || 0).toLocaleString()}`
+        ? `${formatCurrency(request.budgetMin || 0, currency)} - ${formatCurrency(request.budgetMax || 0, currency)}`
         : (request.budget_range || 'Not specified');
     const startDate   = request.timelineStartDate || request.expected_start;
     const description = request.description || request.requirements || '';
@@ -334,8 +336,9 @@ async function renderSubmitQuote(requestId) {
     const projectType = request.projectType || request.project_type || '';
     const region      = plot?.province || plot?.state || '';
     const area        = (plot?.length && plot?.width) ? plot.length * plot.width : null;
+    const currency    = request.currency || 'USD';
     const budgetText  = (request.budgetMin || request.budgetMax)
-        ? `$${(request.budgetMin || 0).toLocaleString()} - $${(request.budgetMax || 0).toLocaleString()}`
+        ? `${formatCurrency(request.budgetMin || 0, currency)} - ${formatCurrency(request.budgetMax || 0, currency)}`
         : (request.budget_range || 'Not specified');
     const description = request.description || request.requirements || '';
 
@@ -362,23 +365,26 @@ async function renderSubmitQuote(requestId) {
                             <p style="font-size: var(--font-size-sm); color: var(--gray-300);">${description}</p>
                         </div>
                         <form id="submit-quote-form" onsubmit="handleSubmitQuote(event, '${requestId}')">
+                            <p style="font-size: var(--font-size-sm); color: var(--gray-400); margin-bottom: var(--space-4);">
+                                💱 Quote in <strong>${currency}</strong> — the currency the property owner specified.
+                            </p>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label class="form-label">Materials Cost ($) *</label>
+                                    <label class="form-label">Materials Cost (${currency}) *</label>
                                     <input type="number" step="100" min="0" name="materialsCost" class="form-input" placeholder="e.g., 25000" required>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Labor Cost ($) *</label>
+                                    <label class="form-label">Labor Cost (${currency}) *</label>
                                     <input type="number" step="100" min="0" name="laborCost" class="form-input" placeholder="e.g., 15000" required>
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label class="form-label">Permits Cost ($)</label>
+                                    <label class="form-label">Permits Cost (${currency})</label>
                                     <input type="number" step="50" min="0" name="permitsCost" class="form-input" placeholder="e.g., 1500" value="0">
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Other Cost ($)</label>
+                                    <label class="form-label">Other Cost (${currency})</label>
                                     <input type="number" step="50" min="0" name="otherCost" class="form-input" placeholder="e.g., 2000" value="0">
                                 </div>
                             </div>
@@ -459,6 +465,7 @@ async function renderBuilderQuotes() {
             : (request ? await DB.getById('plots', request.plot || request.plot_id) : null);
 
         const projectType = request?.projectType || request?.project_type || 'N/A';
+        const currency = request?.currency || 'USD';
         const total = (quote.materialsCost || 0) + (quote.laborCost || 0)
                     + (quote.permitsCost   || 0) + (quote.otherCost  || 0);
         const amount = total || quote.amount || 0;
@@ -471,7 +478,7 @@ async function renderBuilderQuotes() {
             <tr>
                 <td>${plot?.streetAddress || plot?.title || 'Unknown'}</td>
                 <td>${projectType}</td>
-                <td>${formatCurrency(amount)}</td>
+                <td>${formatCurrency(amount, currency)}</td>
                 <td>${duration}</td>
                 <td>${getStatusBadge(quote.status)}</td>
                 <td>${created ? timeAgo(created) : '—'}</td>

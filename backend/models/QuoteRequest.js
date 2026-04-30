@@ -8,6 +8,7 @@ const quoteRequestSchema = new mongoose.Schema({
     totalArea:              { type: Number, default: null },
     budgetMin:              { type: Number, default: null },
     budgetMax:              { type: Number, default: null },
+    currency:               { type: String, default: 'USD' },
     timelineStartDate:      { type: Date,   default: null },
     expectedDurationMonths: { type: Number, default: null },
     description:            { type: String, default: null },

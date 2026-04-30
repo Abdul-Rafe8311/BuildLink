@@ -415,13 +415,21 @@ async function renderRequestQuote(plotId) {
                                     <input type="number" step="0.01" name="totalArea" class="form-input" placeholder="e.g., 2400" value="${defaultArea}">
                                 </div>
                             </div>
+                            <div class="form-group">
+                                <label class="form-label">Currency</label>
+                                <select name="currency" class="form-select">
+                                    ${SUPPORTED_CURRENCIES.map(c => `
+                                        <option value="${c.code}" ${c.code === 'USD' ? 'selected' : ''}>${c.label}</option>
+                                    `).join('')}
+                                </select>
+                            </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label class="form-label">Budget Min (USD)</label>
+                                    <label class="form-label">Budget Min</label>
                                     <input type="number" step="100" name="budgetMin" class="form-input" placeholder="e.g., 50000">
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Budget Max (USD)</label>
+                                    <label class="form-label">Budget Max</label>
                                     <input type="number" step="100" name="budgetMax" class="form-input" placeholder="e.g., 100000">
                                 </div>
                             </div>
@@ -463,6 +471,7 @@ async function handleQuoteRequest(event, plotId) {
         totalArea:              form.totalArea.value ? parseFloat(form.totalArea.value) : null,
         budgetMin:              form.budgetMin.value ? parseFloat(form.budgetMin.value) : null,
         budgetMax:              form.budgetMax.value ? parseFloat(form.budgetMax.value) : null,
+        currency:               form.currency ? form.currency.value : 'USD',
         timelineStartDate:      form.timelineStartDate.value || null,
         expectedDurationMonths: form.expectedDurationMonths.value ? parseInt(form.expectedDurationMonths.value, 10) : null,
         description:            form.description.value
@@ -528,8 +537,9 @@ async function renderQuoteRequestCard(request) {
         : await DB.getById('plots', request.plot || request.plot_id);
     const plotLabel = plot?.streetAddress || plot?.title || 'Unknown plot';
     const projectType = request.projectType || request.project_type || '';
+    const currency = request.currency || 'USD';
     const budgetText = (request.budgetMin || request.budgetMax)
-        ? `$${(request.budgetMin || 0).toLocaleString()} - $${(request.budgetMax || 0).toLocaleString()}`
+        ? `${formatCurrency(request.budgetMin || 0, currency)} - ${formatCurrency(request.budgetMax || 0, currency)}`
         : (request.budget_range || 'Not specified');
     const createdAt = request.createdAt || request.created_at;
 
@@ -572,14 +582,24 @@ async function renderViewQuotes(requestId) {
     const request = await DB.getById('quote_requests', requestId);
     if (!request) { navigateTo('my-quotes'); return; }
 
-    const plot = await DB.getById('plots', request.plot_id);
-    const quotes = await DB.getByField('quotes', 'quote_request_id', requestId);
+    const plot = (request.plot && typeof request.plot === 'object')
+        ? request.plot
+        : await DB.getById('plots', request.plot || request.plot_id);
+    const quotes = await DB.getByField('quotes', 'request', requestId);
+
+    const requestCurrency = request.currency || 'USD';
 
     // Pre-build quote cards (async)
     const quoteCardsHtml = [];
     for (const quote of quotes) {
-        quoteCardsHtml.push(await renderQuoteCard(quote));
+        quoteCardsHtml.push(await renderQuoteCard(quote, requestCurrency));
     }
+
+    const plotLabel = plot?.streetAddress || plot?.title || 'this request';
+    const projectType = request.projectType || request.project_type || '';
+    const budgetText = (request.budgetMin || request.budgetMax)
+        ? `${formatCurrency(request.budgetMin || 0, requestCurrency)} - ${formatCurrency(request.budgetMax || 0, requestCurrency)}`
+        : (request.budget_range || 'Budget not specified');
 
     const main = document.getElementById('main-content');
     main.innerHTML = `
@@ -588,8 +608,8 @@ async function renderViewQuotes(requestId) {
             <div class="dashboard-content">
                 <div class="dashboard-header">
                     <div>
-                        <h1 class="dashboard-title">Quotes for ${plot?.title}</h1>
-                        <p class="dashboard-subtitle">${request.project_type} - ${request.budget_range || 'Budget not specified'}</p>
+                        <h1 class="dashboard-title">Quotes for ${plotLabel}</h1>
+                        <p class="dashboard-subtitle">${projectType} — ${budgetText}</p>
                     </div>
                     <button class="btn btn-outline" onclick="navigateTo('my-quotes')">← Back to Requests</button>
                 </div>
@@ -610,26 +630,50 @@ async function renderViewQuotes(requestId) {
     addDashboardStyles();
 }
 
-async function renderQuoteCard(quote) {
-    const builder = await DB.getOneByField('builder_profiles', 'user_id', quote.builder_id);
+async function renderQuoteCard(quote, currency = 'USD') {
+    const quoteId = quote._id || quote.id;
+    // Backend populates `constructor` with builder profile fields.
+    const builder = (quote.constructor && typeof quote.constructor === 'object')
+        ? quote.constructor
+        : null;
+    const builderName = builder
+        ? (builder.companyName || [builder.firstName, builder.lastName].filter(Boolean).join(' ') || builder.email || 'Builder')
+        : 'Builder';
+
+    const total = (quote.materialsCost || 0) + (quote.laborCost || 0)
+                + (quote.permitsCost   || 0) + (quote.otherCost  || 0);
+    const amount = total || quote.amount || 0;
+    const duration = quote.durationMonths
+        ? quote.durationMonths + ' months'
+        : (quote.estimated_days ? quote.estimated_days + ' days' : '—');
+    const description = quote.description || quote.scope_of_work || '';
+    const requestId = (quote.request && typeof quote.request === 'object'
+        ? (quote.request._id || quote.request.id)
+        : quote.request) || quote.quote_request_id;
 
     return `
         <div class="card quote-card">
             <div class="quote-card-header">
-                <div class="avatar">${getInitials(builder?.company_name || 'B')}</div>
+                <div class="avatar">${getInitials(builderName)}</div>
                 <div>
-                    <h4>${builder?.company_name || 'Unknown Builder'}</h4>
+                    <h4>${builderName}</h4>
                     <span style="color: var(--gray-400); font-size: var(--font-size-sm);">
-                        ★ ${builder?.rating?.toFixed(1) || 'N/A'}
+                        ${builder?.email || ''}
                     </span>
                 </div>
             </div>
             <div class="quote-card-body">
-                <div class="quote-amount">${formatCurrency(quote.amount)}</div>
-                <div class="quote-details">
+                <div class="quote-amount">${formatCurrency(amount, currency)}</div>
+                <div class="quote-breakdown" style="font-size: var(--font-size-xs); color: var(--gray-400); margin-top: var(--space-2);">
+                    Materials ${formatCurrency(quote.materialsCost || 0, currency)} ·
+                    Labor ${formatCurrency(quote.laborCost || 0, currency)} ·
+                    Permits ${formatCurrency(quote.permitsCost || 0, currency)} ·
+                    Other ${formatCurrency(quote.otherCost || 0, currency)}
+                </div>
+                <div class="quote-details" style="margin-top: var(--space-3);">
                     <div class="quote-detail">
-                        <span style="color: var(--gray-400)">Timeline</span>
-                        <span>${quote.estimated_days} days</span>
+                        <span style="color: var(--gray-400)">Duration</span>
+                        <span>${duration}</span>
                     </div>
                     <div class="quote-detail">
                         <span style="color: var(--gray-400)">Status</span>
@@ -637,33 +681,37 @@ async function renderQuoteCard(quote) {
                     </div>
                 </div>
                 <p style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--gray-300);">
-                    ${quote.scope_of_work?.slice(0, 150)}${quote.scope_of_work?.length > 150 ? '...' : ''}
+                    ${description.slice(0, 180)}${description.length > 180 ? '...' : ''}
                 </p>
             </div>
             ${quote.status === 'pending' ? `
                 <div class="quote-card-footer">
-                    <button class="btn btn-outline btn-sm" onclick="handleQuoteAction('${quote.id}', 'rejected')">Decline</button>
-                    <button class="btn btn-success btn-sm" onclick="handleQuoteAction('${quote.id}', 'accepted')">Accept</button>
+                    <button class="btn btn-success btn-sm" onclick="handleQuoteAction('${quoteId}', 'accepted', '${requestId}')">Accept</button>
                 </div>
             ` : ''}
         </div>
     `;
 }
 
-async function handleQuoteAction(quoteId, action) {
-    await DB.update('quotes', quoteId, { status: action });
-
-    if (action === 'accepted') {
-        const quote = await DB.getById('quotes', quoteId);
-        await DB.update('quote_requests', quote.quote_request_id, { status: 'closed' });
-        showToast('Quote accepted! The builder will contact you soon.', 'success');
-    } else {
-        showToast('Quote declined.', 'info');
+async function handleQuoteAction(quoteId, action, requestId) {
+    try {
+        if (action === 'accepted') {
+            // Backend has a dedicated route for accept (creates a Project record).
+            if (typeof APIService !== 'undefined' && Config.shouldUseBackend()) {
+                await APIService.acceptQuote(quoteId, '');
+            } else {
+                await DB.update('quotes', quoteId, { status: 'accepted' });
+            }
+            showToast('Quote accepted! The builder will contact you soon.', 'success');
+        } else {
+            await DB.update('quotes', quoteId, { status: 'rejected' });
+            showToast('Quote declined.', 'info');
+        }
+        navigateTo('view-quotes', requestId);
+    } catch (err) {
+        console.error('Quote action failed:', err);
+        showToast(err.message || 'Action failed.', 'error');
     }
-
-    // Re-render the page
-    const quote = await DB.getById('quotes', quoteId);
-    navigateTo('view-quotes', quote.quote_request_id);
 }
 
 function addDashboardStyles() {

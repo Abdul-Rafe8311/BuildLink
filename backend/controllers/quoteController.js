@@ -20,13 +20,16 @@ try {
 exports.createQuoteRequest = async (req, res, next) => {
     try {
         const { plotId, projectType, numberOfFloors, totalArea,
-                budgetMin, budgetMax, timelineStartDate, expectedDurationMonths, description } = req.body;
+                budgetMin, budgetMax, currency,
+                timelineStartDate, expectedDurationMonths, description } = req.body;
 
         const quoteRequest = await QuoteRequest.create({
             owner:   req.user._id,
             plot:    plotId || null,
             projectType, numberOfFloors, totalArea,
-            budgetMin, budgetMax, timelineStartDate, expectedDurationMonths, description
+            budgetMin, budgetMax,
+            currency: currency || 'USD',
+            timelineStartDate, expectedDurationMonths, description
         });
 
         res.status(201).json({ success: true, message: 'Quote request created successfully', data: { quoteRequest } });
