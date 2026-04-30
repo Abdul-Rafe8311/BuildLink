@@ -257,6 +257,11 @@ const APIService = {
         return data.data.quoteRequests;
     },
 
+    async getOpenQuoteRequests() {
+        const data = await this.request('/quotes/requests/open');
+        return data.data.quoteRequests || [];
+    },
+
     async submitQuote(quote) {
         const data = await this.request('/quotes', {
             method: 'POST',

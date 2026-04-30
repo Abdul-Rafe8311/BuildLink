@@ -158,37 +158,37 @@ function renderCustomerSidebar(active) {
 }
 
 async function renderPlotCard(plot) {
-    const quoteRequests = await DB.getByField('quote_requests', 'plot_id', plot.id);
-    const hasOpenRequest = quoteRequests.some(r => r.status === 'open');
+    const plotId = plot._id || plot.id;
+    const area = (plot.length && plot.width) ? (plot.length * plot.width) : null;
+    const title = plot.streetAddress || plot.title || 'Untitled plot';
+    const region = plot.province || plot.state || '';
+    const status = plot.status || 'active';
 
     return `
         <div class="card plot-card">
             <div class="plot-card-header">
-                <h4>${plot.title}</h4>
-                ${getStatusBadge(hasOpenRequest ? 'open' : 'closed')}
+                <h4>${title}</h4>
+                ${getStatusBadge(status)}
             </div>
             <div class="plot-card-body">
                 <div class="plot-info">
                     <div class="plot-info-row">
                         <span class="label">Location</span>
-                        <span>${plot.city}, ${plot.state}</span>
+                        <span>${plot.city || ''}${region ? ', ' + region : ''}</span>
+                    </div>
+                    <div class="plot-info-row">
+                        <span class="label">Dimensions</span>
+                        <span>${plot.length || '?'} × ${plot.width || '?'} ft</span>
                     </div>
                     <div class="plot-info-row">
                         <span class="label">Area</span>
-                        <span>${plot.area_sqft.toLocaleString()} sq ft</span>
-                    </div>
-                    <div class="plot-info-row">
-                        <span class="label">Type</span>
-                        <span>${plot.plot_type}</span>
+                        <span>${area ? area.toLocaleString() + ' sq ft' : 'N/A'}</span>
                     </div>
                 </div>
-                <p style="font-size: var(--font-size-sm); color: var(--gray-400);">
-                    ${plot.description?.slice(0, 80)}${plot.description?.length > 80 ? '...' : ''}
-                </p>
             </div>
             <div class="plot-card-footer">
-                <button class="btn btn-outline btn-sm" onclick="navigateTo('edit-plot', '${plot.id}')">Edit</button>
-                <button class="btn btn-primary btn-sm" onclick="navigateTo('request-quote', '${plot.id}')">Request Quote</button>
+                <button class="btn btn-outline btn-sm" onclick="navigateTo('edit-plot', '${plotId}')">Edit</button>
+                <button class="btn btn-primary btn-sm" onclick="navigateTo('request-quote', '${plotId}')">Request Quote</button>
             </div>
         </div>
     `;
@@ -258,42 +258,67 @@ async function renderPlotForm(plotId = null) {
                     <div class="card-body">
                         <form id="plot-form" onsubmit="handlePlotSubmit(event, ${isEdit ? `'${plotId}'` : 'null'})">
                             <div class="form-group">
-                                <label class="form-label">Plot Title *</label>
-                                <input type="text" name="title" class="form-input" placeholder="e.g., Downtown Residential Plot" value="${plot?.title || ''}" required>
+                                <label class="form-label">Street Address *</label>
+                                <input type="text" name="streetAddress" class="form-input" placeholder="123 Main Street" value="${plot?.streetAddress || ''}" required>
                             </div>
                             <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label">Street Address *</label>
-                                    <input type="text" name="address" class="form-input" placeholder="123 Main Street" value="${plot?.address || ''}" required>
-                                </div>
                                 <div class="form-group">
                                     <label class="form-label">City *</label>
                                     <input type="text" name="city" class="form-input" placeholder="City" value="${plot?.city || ''}" required>
                                 </div>
+                                <div class="form-group">
+                                    <label class="form-label">Province / State *</label>
+                                    <input type="text" name="province" class="form-input" placeholder="Province or State" value="${plot?.province || ''}" required>
+                                </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label class="form-label">State *</label>
-                                    <input type="text" name="state" class="form-input" placeholder="State" value="${plot?.state || ''}" required>
+                                    <label class="form-label">Postal / Zip Code</label>
+                                    <input type="text" name="postalCode" class="form-input" placeholder="e.g., 12345" value="${plot?.postalCode || ''}">
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Plot Area (sq ft) *</label>
-                                    <input type="number" name="area_sqft" class="form-input" placeholder="e.g., 5000" value="${plot?.area_sqft || ''}" required>
+                                    <label class="form-label">Country</label>
+                                    <input type="text" name="country" class="form-input" placeholder="Country" value="${plot?.country || ''}">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Length (ft) *</label>
+                                    <input type="number" step="0.01" name="length" class="form-input" placeholder="e.g., 80" value="${plot?.length ?? ''}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Width (ft) *</label>
+                                    <input type="number" step="0.01" name="width" class="form-input" placeholder="e.g., 60" value="${plot?.width ?? ''}" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Soil Type</label>
+                                    <select name="soilType" class="form-select">
+                                        <option value="unknown" ${(plot?.soilType || 'unknown') === 'unknown' ? 'selected' : ''}>Unknown</option>
+                                        <option value="clay"  ${plot?.soilType === 'clay'  ? 'selected' : ''}>Clay</option>
+                                        <option value="sand"  ${plot?.soilType === 'sand'  ? 'selected' : ''}>Sand</option>
+                                        <option value="loam"  ${plot?.soilType === 'loam'  ? 'selected' : ''}>Loam</option>
+                                        <option value="rock"  ${plot?.soilType === 'rock'  ? 'selected' : ''}>Rock</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Topography</label>
+                                    <select name="topography" class="form-select">
+                                        <option value="flat"   ${(plot?.topography || 'flat') === 'flat' ? 'selected' : ''}>Flat</option>
+                                        <option value="sloped" ${plot?.topography === 'sloped' ? 'selected' : ''}>Sloped</option>
+                                        <option value="hilly"  ${plot?.topography === 'hilly'  ? 'selected' : ''}>Hilly</option>
+                                    </select>
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Plot Type *</label>
-                                <select name="plot_type" class="form-select" required>
-                                    <option value="">Select plot type</option>
-                                    <option value="residential" ${plot?.plot_type === 'residential' ? 'selected' : ''}>Residential</option>
-                                    <option value="commercial" ${plot?.plot_type === 'commercial' ? 'selected' : ''}>Commercial</option>
-                                    <option value="industrial" ${plot?.plot_type === 'industrial' ? 'selected' : ''}>Industrial</option>
-                                    <option value="mixed" ${plot?.plot_type === 'mixed' ? 'selected' : ''}>Mixed Use</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Description</label>
-                                <textarea name="description" class="form-textarea" placeholder="Describe your plot, any special features, existing structures, etc.">${plot?.description || ''}</textarea>
+                                <label class="form-label">Utilities Available</label>
+                                <div style="display:flex; gap: var(--space-4); flex-wrap: wrap;">
+                                    <label><input type="checkbox" name="hasWater"       ${plot?.hasWater       ? 'checked' : ''}> Water</label>
+                                    <label><input type="checkbox" name="hasElectricity" ${plot?.hasElectricity ? 'checked' : ''}> Electricity</label>
+                                    <label><input type="checkbox" name="hasGas"         ${plot?.hasGas         ? 'checked' : ''}> Gas</label>
+                                    <label><input type="checkbox" name="hasSewer"       ${plot?.hasSewer       ? 'checked' : ''}> Sewer</label>
+                                </div>
                             </div>
                             <div class="form-actions" style="display: flex; gap: var(--space-4); margin-top: var(--space-6);">
                                 <button type="button" class="btn btn-outline" onclick="navigateTo('my-plots')">Cancel</button>
@@ -311,29 +336,37 @@ async function renderPlotForm(plotId = null) {
 async function handlePlotSubmit(event, plotId) {
     event.preventDefault();
     const form = event.target;
-    const user = await Auth.getCurrentUser();
 
     const data = {
-        customer_id: user.id,
-        title: form.title.value,
-        address: form.address.value,
-        city: form.city.value,
-        state: form.state.value,
-        area_sqft: parseFloat(form.area_sqft.value),
-        plot_type: form.plot_type.value,
-        description: form.description.value,
-        accepting_quotes: true
+        streetAddress:  form.streetAddress.value,
+        city:           form.city.value,
+        province:       form.province.value,
+        postalCode:     form.postalCode.value || null,
+        country:        form.country.value || null,
+        length:         parseFloat(form.length.value),
+        width:          parseFloat(form.width.value),
+        soilType:       form.soilType.value,
+        topography:     form.topography.value,
+        hasWater:       form.hasWater.checked,
+        hasElectricity: form.hasElectricity.checked,
+        hasGas:         form.hasGas.checked,
+        hasSewer:       form.hasSewer.checked,
+        status:         'active'
     };
 
-    if (plotId) {
-        await DB.update('plots', plotId, data);
-        showToast('Plot updated successfully!', 'success');
-    } else {
-        await DB.insert('plots', data);
-        showToast('Plot added successfully!', 'success');
+    try {
+        if (plotId) {
+            await DB.update('plots', plotId, data);
+            showToast('Plot updated successfully!', 'success');
+        } else {
+            await DB.insert('plots', data);
+            showToast('Plot added successfully!', 'success');
+        }
+        navigateTo('my-plots');
+    } catch (err) {
+        console.error('Plot save failed:', err);
+        showToast(err.message || 'Failed to save plot. Please try again.', 'error');
     }
-
-    navigateTo('my-plots');
 }
 
 // Request Quote Page
@@ -344,6 +377,9 @@ async function renderRequestQuote(plotId) {
     const plot = await DB.getById('plots', plotId);
     if (!plot) { navigateTo('my-plots'); return; }
 
+    const plotLabel = plot.streetAddress || plot.title || 'this plot';
+    const defaultArea = (plot.length && plot.width) ? (plot.length * plot.width) : '';
+
     const main = document.getElementById('main-content');
     main.innerHTML = `
         <div class="dashboard">
@@ -352,7 +388,7 @@ async function renderRequestQuote(plotId) {
                 <div class="dashboard-header">
                     <div>
                         <h1 class="dashboard-title">Request Quotes</h1>
-                        <p class="dashboard-subtitle">for ${plot.title}</p>
+                        <p class="dashboard-subtitle">for ${plotLabel}</p>
                     </div>
                 </div>
                 <div class="card" style="max-width: 800px;">
@@ -360,7 +396,7 @@ async function renderRequestQuote(plotId) {
                         <form id="quote-request-form" onsubmit="handleQuoteRequest(event, '${plotId}')">
                             <div class="form-group">
                                 <label class="form-label">Project Type *</label>
-                                <select name="project_type" class="form-select" required>
+                                <select name="projectType" class="form-select" required>
                                     <option value="">Select project type</option>
                                     <option value="New Construction">New Construction</option>
                                     <option value="Renovation">Renovation</option>
@@ -369,26 +405,39 @@ async function renderRequestQuote(plotId) {
                                     <option value="Landscaping">Landscaping</option>
                                 </select>
                             </div>
-                            <div class="form-group">
-                                <label class="form-label">Project Requirements *</label>
-                                <textarea name="requirements" class="form-textarea" placeholder="Describe your project requirements in detail..." required></textarea>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Number of Floors</label>
+                                    <input type="number" name="numberOfFloors" class="form-input" min="1" value="1">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Total Built Area (sq ft)</label>
+                                    <input type="number" step="0.01" name="totalArea" class="form-input" placeholder="e.g., 2400" value="${defaultArea}">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Budget Min (USD)</label>
+                                    <input type="number" step="100" name="budgetMin" class="form-input" placeholder="e.g., 50000">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Budget Max (USD)</label>
+                                    <input type="number" step="100" name="budgetMax" class="form-input" placeholder="e.g., 100000">
+                                </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label class="form-label">Expected Start Date</label>
-                                    <input type="date" name="expected_start" class="form-input">
+                                    <input type="date" name="timelineStartDate" class="form-input">
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Budget Range</label>
-                                    <select name="budget_range" class="form-select">
-                                        <option value="">Select budget range</option>
-                                        <option value="Under $50,000">Under $50,000</option>
-                                        <option value="$50,000 - $100,000">$50,000 - $100,000</option>
-                                        <option value="$100,000 - $250,000">$100,000 - $250,000</option>
-                                        <option value="$250,000 - $500,000">$250,000 - $500,000</option>
-                                        <option value="Over $500,000">Over $500,000</option>
-                                    </select>
+                                    <label class="form-label">Expected Duration (months)</label>
+                                    <input type="number" name="expectedDurationMonths" class="form-input" placeholder="e.g., 6">
                                 </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Project Description *</label>
+                                <textarea name="description" class="form-textarea" placeholder="Describe your project, materials, finish quality, special requirements..." required></textarea>
                             </div>
                             <div class="form-actions" style="display: flex; gap: var(--space-4); margin-top: var(--space-6);">
                                 <button type="button" class="btn btn-outline" onclick="navigateTo('my-plots')">Cancel</button>
@@ -406,21 +455,27 @@ async function renderRequestQuote(plotId) {
 async function handleQuoteRequest(event, plotId) {
     event.preventDefault();
     const form = event.target;
-    const user = await Auth.getCurrentUser();
 
     const data = {
-        plot_id: plotId,
-        customer_id: user.id,
-        project_type: form.project_type.value,
-        requirements: form.requirements.value,
-        expected_start: form.expected_start.value,
-        budget_range: form.budget_range.value,
-        status: 'open'
+        plotId: plotId,
+        projectType:            form.projectType.value,
+        numberOfFloors:         parseInt(form.numberOfFloors.value, 10) || 1,
+        totalArea:              form.totalArea.value ? parseFloat(form.totalArea.value) : null,
+        budgetMin:              form.budgetMin.value ? parseFloat(form.budgetMin.value) : null,
+        budgetMax:              form.budgetMax.value ? parseFloat(form.budgetMax.value) : null,
+        timelineStartDate:      form.timelineStartDate.value || null,
+        expectedDurationMonths: form.expectedDurationMonths.value ? parseInt(form.expectedDurationMonths.value, 10) : null,
+        description:            form.description.value
     };
 
-    await DB.insert('quote_requests', data);
-    showToast('Quote request submitted! Builders will start sending quotes soon.', 'success');
-    navigateTo('my-quotes');
+    try {
+        await DB.insert('quote_requests', data);
+        showToast('Quote request submitted! Builders will start sending quotes soon.', 'success');
+        navigateTo('my-quotes');
+    } catch (err) {
+        console.error('Quote request failed:', err);
+        showToast(err.message || 'Failed to submit quote request.', 'error');
+    }
 }
 
 // My Quotes Page
@@ -466,38 +521,43 @@ async function renderMyQuotes() {
 }
 
 async function renderQuoteRequestCard(request) {
-    const plot = await DB.getById('plots', request.plot_id);
-    const quotes = await DB.getByField('quotes', 'quote_request_id', request.id);
+    const requestId = request._id || request.id;
+    // Backend populates `plot`; localStorage path used `plot_id`.
+    const plot = (request.plot && typeof request.plot === 'object')
+        ? request.plot
+        : await DB.getById('plots', request.plot || request.plot_id);
+    const plotLabel = plot?.streetAddress || plot?.title || 'Unknown plot';
+    const projectType = request.projectType || request.project_type || '';
+    const budgetText = (request.budgetMin || request.budgetMax)
+        ? `$${(request.budgetMin || 0).toLocaleString()} - $${(request.budgetMax || 0).toLocaleString()}`
+        : (request.budget_range || 'Not specified');
+    const createdAt = request.createdAt || request.created_at;
 
     return `
         <div class="card request-card">
             <div class="request-card-header">
-                <h4>${plot?.title || 'Unknown Plot'}</h4>
+                <h4>${plotLabel}</h4>
                 ${getStatusBadge(request.status)}
             </div>
             <div class="request-card-body">
                 <div class="request-info">
                     <div class="request-info-row">
                         <span class="label">Project Type</span>
-                        <span>${request.project_type}</span>
+                        <span>${projectType}</span>
                     </div>
                     <div class="request-info-row">
                         <span class="label">Budget</span>
-                        <span>${request.budget_range || 'Not specified'}</span>
-                    </div>
-                    <div class="request-info-row">
-                        <span class="label">Quotes Received</span>
-                        <span>${quotes.length}</span>
+                        <span>${budgetText}</span>
                     </div>
                     <div class="request-info-row">
                         <span class="label">Created</span>
-                        <span>${timeAgo(request.created_at)}</span>
+                        <span>${createdAt ? timeAgo(createdAt) : '—'}</span>
                     </div>
                 </div>
             </div>
             <div class="request-card-footer">
-                <button class="btn btn-primary btn-sm btn-full" onclick="navigateTo('view-quotes', '${request.id}')">
-                    View Quotes (${quotes.length})
+                <button class="btn btn-primary btn-sm btn-full" onclick="navigateTo('view-quotes', '${requestId}')">
+                    View Quotes
                 </button>
             </div>
         </div>

@@ -76,20 +76,18 @@ const DB = {
     },
 
     // Insert new record
+    // In backend mode, errors propagate so callers can show meaningful messages.
+    // (Silent localStorage fallback for writes was hiding validation errors and
+    // creating "ghost saves" that never reach the server.)
     async insert(table, record) {
         if (this.useBackend()) {
-            try {
-                // Map table names to API endpoints
-                const endpoint = this.getEndpointForTable(table);
-                if (endpoint) {
-                    return await APIService.insert(endpoint, record);
-                }
-            } catch (error) {
-                console.error(`Backend error, falling back to localStorage:`, error);
+            const endpoint = this.getEndpointForTable(table);
+            if (endpoint) {
+                return await APIService.insert(endpoint, record);
             }
         }
 
-        // localStorage fallback
+        // localStorage path (only when no backend configured)
         const records = await this.getAll(table);
         const newRecord = {
             id: this.generateId(),
@@ -101,20 +99,16 @@ const DB = {
         return newRecord;
     },
 
-    // Update record
+    // Update record (errors propagate in backend mode — see insert() comment).
     async update(table, id, updates) {
         if (this.useBackend()) {
-            try {
-                const endpoint = this.getEndpointForTable(table);
-                if (endpoint) {
-                    return await APIService.update(endpoint, id, updates);
-                }
-            } catch (error) {
-                console.error(`Backend error, falling back to localStorage:`, error);
+            const endpoint = this.getEndpointForTable(table);
+            if (endpoint) {
+                return await APIService.update(endpoint, id, updates);
             }
         }
 
-        // localStorage fallback
+        // localStorage path
         const records = await this.getAll(table);
         const index = records.findIndex(r => r.id === id || r._id === id);
 

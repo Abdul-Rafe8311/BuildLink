@@ -133,12 +133,22 @@ async function renderOpenRequests() {
     const user = await Auth.getCurrentUser();
     if (!user || user.role !== 'builder' && user.role !== 'constructor') { navigateTo('login'); return; }
 
-    // Get all open quote requests that builder hasn't quoted on yet
-    const allRequests = await DB.getByField('quote_requests', 'status', 'open');
-    const myQuotes = await DB.getByField('quotes', 'builder_id', user.id);
-    const quotedRequestIds = myQuotes.map(q => q.quote_request_id);
-
-    const availableRequests = allRequests.filter(req => !quotedRequestIds.includes(req.id));
+    // Backend filters out requests this constructor has already quoted on.
+    // Falls back to localStorage filtering if running in offline mode.
+    let availableRequests = [];
+    try {
+        if (typeof APIService !== 'undefined' && Config.shouldUseBackend()) {
+            availableRequests = await APIService.getOpenQuoteRequests();
+        } else {
+            const allRequests = await DB.getByField('quote_requests', 'status', 'pending');
+            const myQuotes = await DB.getByField('quotes', 'constructor', user.id);
+            const quotedIds = myQuotes.map(q => q.request);
+            availableRequests = allRequests.filter(r => !quotedIds.includes(r.id));
+        }
+    } catch (err) {
+        console.error('Failed to load open requests:', err);
+        showToast(err.message || 'Failed to load open requests.', 'error');
+    }
 
     // Pre-build request cards (async)
     const requestCardsHtml = [];
@@ -175,45 +185,56 @@ async function renderOpenRequests() {
 }
 
 async function renderOpenRequestCard(request) {
-    const plot = await DB.getById('plots', request.plot_id);
-    const customer = await DB.getOneByField('customer_profiles', 'user_id', request.customer_id);
+    const requestId = request._id || request.id;
+    const plot = (request.plot && typeof request.plot === 'object')
+        ? request.plot
+        : await DB.getById('plots', request.plot || request.plot_id);
+    const plotLabel = plot?.streetAddress || plot?.title || 'Plot';
+    const projectType = request.projectType || request.project_type || '';
+    const region = plot?.province || plot?.state || '';
+    const area = (plot?.length && plot?.width) ? plot.length * plot.width : null;
+    const budgetText = (request.budgetMin || request.budgetMax)
+        ? `$${(request.budgetMin || 0).toLocaleString()} - $${(request.budgetMax || 0).toLocaleString()}`
+        : (request.budget_range || 'Not specified');
+    const description = request.description || request.requirements || '';
+    const createdAt = request.createdAt || request.created_at;
 
     return `
         <div class="card request-card">
             <div class="request-card-header">
-                <h4>${plot?.title || 'Unknown Plot'}</h4>
+                <h4>${plotLabel}</h4>
                 ${getStatusBadge(request.status)}
             </div>
             <div class="request-card-body">
                 <div class="request-info">
                     <div class="request-info-row">
                         <span class="label">Project Type</span>
-                        <span>${request.project_type}</span>
+                        <span>${projectType}</span>
                     </div>
                     <div class="request-info-row">
                         <span class="label">Location</span>
-                        <span>${plot?.city || ''}, ${plot?.state || ''}</span>
+                        <span>${plot?.city || ''}${region ? ', ' + region : ''}</span>
                     </div>
                     <div class="request-info-row">
                         <span class="label">Plot Size</span>
-                        <span>${plot?.area_sqft?.toLocaleString() || 'N/A'} sq ft</span>
+                        <span>${area ? area.toLocaleString() + ' sq ft' : 'N/A'}</span>
                     </div>
                     <div class="request-info-row">
                         <span class="label">Budget</span>
-                        <span>${request.budget_range || 'Not specified'}</span>
+                        <span>${budgetText}</span>
                     </div>
                     <div class="request-info-row">
                         <span class="label">Posted</span>
-                        <span>${timeAgo(request.created_at)}</span>
+                        <span>${createdAt ? timeAgo(createdAt) : '—'}</span>
                     </div>
                 </div>
                 <p style="margin-top: var(--space-4); font-size: var(--font-size-sm); color: var(--gray-300);">
-                    ${request.requirements?.slice(0, 120)}${request.requirements?.length > 120 ? '...' : ''}
+                    ${description.slice(0, 120)}${description.length > 120 ? '...' : ''}
                 </p>
             </div>
             <div class="request-card-footer">
-                <button class="btn btn-outline btn-sm" onclick="viewRequestDetails('${request.id}')">View Details</button>
-                <button class="btn btn-primary btn-sm" onclick="navigateTo('submit-quote', '${request.id}')">Submit Quote</button>
+                <button class="btn btn-outline btn-sm" onclick="viewRequestDetails('${requestId}')">View Details</button>
+                <button class="btn btn-primary btn-sm" onclick="navigateTo('submit-quote', '${requestId}')">Submit Quote</button>
             </div>
         </div>
     `;

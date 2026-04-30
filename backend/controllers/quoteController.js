@@ -41,10 +41,35 @@ exports.getQuoteRequests = async (req, res, next) => {
         if (req.query.status) filter.status = req.query.status;
 
         const quoteRequests = await QuoteRequest.find(filter)
-            .populate('plot', 'streetAddress length width')
+            .populate('plot', 'streetAddress length width city province')
             .sort({ createdAt: -1 });
 
         res.json({ success: true, data: { quoteRequests } });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// Builder-facing: list all pending requests across the platform that the
+// current constructor has not already submitted a quote on.
+exports.getOpenQuoteRequests = async (req, res, next) => {
+    try {
+        if (req.user.role !== 'constructor') {
+            return res.status(403).json({ success: false, message: 'Only constructors can browse open requests' });
+        }
+
+        const myQuotes = await Quote.find({ constructor: req.user._id }).select('request');
+        const quotedIds = myQuotes.map(q => q.request);
+
+        const openRequests = await QuoteRequest.find({
+            status: 'pending',
+            _id: { $nin: quotedIds }
+        })
+            .populate('plot', 'streetAddress length width city province country')
+            .populate('owner', 'firstName lastName email')
+            .sort({ createdAt: -1 });
+
+        res.json({ success: true, data: { quoteRequests: openRequests } });
     } catch (err) {
         next(err);
     }

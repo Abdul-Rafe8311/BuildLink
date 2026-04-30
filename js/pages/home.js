@@ -482,6 +482,11 @@ function toggleFAQ(index) {
 function handleNewsletter(event) {
     event.preventDefault();
     showToast('Thanks for subscribing! 🎉', 'success');
+    if (window.BLFX && typeof BLFX.confetti === 'function') {
+        const btn = event.target.querySelector('button[type="submit"]');
+        const r = (btn || event.target).getBoundingClientRect();
+        BLFX.confetti({ count: 70, x: r.left + r.width / 2, y: r.top });
+    }
     event.target.reset();
 }
 

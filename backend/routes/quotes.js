@@ -9,6 +9,7 @@ router.use(authenticate);
 // Quote requests
 router.post('/requests', quoteController.createQuoteRequest);
 router.get('/requests', quoteController.getQuoteRequests);
+router.get('/requests/open', quoteController.getOpenQuoteRequests);
 router.get('/requests/:id', quoteController.getQuoteRequest);
 
 // Quotes
