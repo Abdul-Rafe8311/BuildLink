@@ -3,13 +3,20 @@
  * Provides AI-powered budget opinions and suggestions
  */
 
-function renderBudgetAdvisor(plotId = null) {
-    const user = Auth.getCurrentUser();
-    if (!user || user.role !== 'customer') { navigateTo('login'); return; }
+async function renderBudgetAdvisor(plotId = null) {
+    const user = await Auth.getCurrentUser();
+    if (!user || (user.role !== 'customer' && user.role !== 'owner')) {
+        navigateTo('login');
+        return;
+    }
 
-    const plots = DB.getByField('plots', 'customer_id', user.id);
-    const selectedPlot = plotId ? DB.getById('plots', plotId) : null;
+    const plots = await DB.getByField('plots', 'owner', user.id);
+    const selectedPlot = plotId ? await DB.getById('plots', plotId) : null;
     const apiConfigured = AIService.isConfigured();
+
+    const plotLabel = (p) => p.streetAddress || p.title || 'Untitled plot';
+    const plotRegion = (p) => p.province || p.state || '';
+    const plotArea = (p) => (p.length && p.width) ? (p.length * p.width) : null;
 
     const main = document.getElementById('main-content');
     main.innerHTML = `
@@ -37,23 +44,28 @@ function renderBudgetAdvisor(plotId = null) {
                                 </div>
                             ` : `
                                 <div class="plot-selector">
-                                    ${plots.map(plot => `
-                                        <div class="plot-select-card ${selectedPlot?.id === plot.id ? 'selected' : ''}" onclick="navigateTo('budget-advisor', '${plot.id}')">
+                                    ${plots.map(plot => {
+                                        const pid = plot._id || plot.id;
+                                        const sid = selectedPlot && (selectedPlot._id || selectedPlot.id);
+                                        const area = plotArea(plot);
+                                        const region = plotRegion(plot);
+                                        return `
+                                        <div class="plot-select-card ${sid === pid ? 'selected' : ''}" onclick="navigateTo('budget-advisor', '${pid}')">
                                             <div class="plot-select-icon">🏗️</div>
                                             <div class="plot-select-info">
-                                                <h4>${plot.title}</h4>
-                                                <p>${plot.city}, ${plot.state} • ${plot.area_sqft?.toLocaleString()} sq ft</p>
+                                                <h4>${plotLabel(plot)}</h4>
+                                                <p>${plot.city || ''}${region ? ', ' + region : ''}${area ? ' • ' + area.toLocaleString() + ' sq ft' : ''}</p>
                                             </div>
-                                            ${selectedPlot?.id === plot.id ? '<span class="selected-badge">✓ Selected</span>' : ''}
+                                            ${sid === pid ? '<span class="selected-badge">✓ Selected</span>' : ''}
                                         </div>
-                                    `).join('')}
+                                    `;}).join('')}
                                 </div>
                             `}
                         </div>
                     </div>
 
                     ${selectedPlot ? renderBudgetAnalysisForm(selectedPlot) : ''}
-                    
+
                     <!-- AI Response Container -->
                     <div id="ai-response-container" style="display: none;"></div>
 
@@ -112,15 +124,16 @@ function saveApiKey() {
 }
 
 function renderBudgetAnalysisForm(plot) {
-    window.currentBudgetPlotId = plot.id;
+    const plotId = plot._id || plot.id;
+    window.currentBudgetPlotId = plotId;
 
     return `
         <div class="card analysis-form-card mb-6">
             <div class="card-body">
                 <h3 class="card-title">📊 Get Budget Analysis</h3>
                 <p class="card-subtitle">Tell us about your project to get personalized budget recommendations</p>
-                
-                <form id="budget-analysis-form" onsubmit="submitBudgetAnalysis(event, '${plot.id}')">
+
+                <form id="budget-analysis-form" onsubmit="submitBudgetAnalysis(event, '${plotId}')">
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Project Type *</label>
@@ -195,7 +208,7 @@ async function submitBudgetAnalysis(event, plotId) {
     }
 
     const form = event.target;
-    const plot = DB.getById('plots', plotId);
+    const plot = await DB.getById('plots', plotId);
     const analyzeBtn = document.getElementById('analyze-btn');
     const responseContainer = document.getElementById('ai-response-container');
 
@@ -216,15 +229,6 @@ async function submitBudgetAnalysis(event, plotId) {
     try {
         const analysis = await AIService.getBudgetOpinion(plot, projectDetails);
         responseContainer.innerHTML = renderAIAnalysisResult(analysis, plot);
-
-        // Save analysis to database for future reference
-        DB.insert('budget_analyses', {
-            plot_id: plotId,
-            customer_id: Auth.getCurrentUser().id,
-            project_details: projectDetails,
-            analysis_result: analysis
-        });
-
         showToast('Budget analysis complete!', 'success');
     } catch (error) {
         responseContainer.innerHTML = renderErrorState(error.message);
@@ -280,7 +284,7 @@ function renderAIAnalysisResult(analysis, plot) {
                         <div class="result-icon">🤖</div>
                         <div>
                             <h2>AI Budget Analysis Complete</h2>
-                            <p>for ${plot.title}</p>
+                            <p>for ${plot.streetAddress || plot.title || 'your plot'}</p>
                         </div>
                     </div>
                     
@@ -388,28 +392,29 @@ function renderAIAnalysisResult(analysis, plot) {
 }
 
 function renderBudgetChat(plot) {
+    const plotId = plot._id || plot.id;
     return `
         <div class="card chat-card mt-6">
             <div class="card-body">
                 <h3 class="card-title">💬 Ask Budget Questions</h3>
                 <p class="card-subtitle">Have specific questions about your budget? Ask our AI advisor!</p>
-                
+
                 <div id="chat-messages" class="chat-messages"></div>
-                
+
                 <div class="chat-input-container">
-                    <input type="text" id="chat-input" class="form-input" 
+                    <input type="text" id="chat-input" class="form-input"
                            placeholder="Ask a question about your construction budget..."
-                           onkeypress="if(event.key === 'Enter') askBudgetQuestion('${plot.id}')">
-                    <button class="btn btn-primary" onclick="askBudgetQuestion('${plot.id}')">
+                           onkeypress="if(event.key === 'Enter') askBudgetQuestion('${plotId}')">
+                    <button class="btn btn-primary" onclick="askBudgetQuestion('${plotId}')">
                         Send
                     </button>
                 </div>
-                
+
                 <div class="quick-questions">
                     <span class="quick-label">Quick questions:</span>
-                    <button class="quick-btn" onclick="askQuickQuestion('${plot.id}', 'What are the main cost drivers for this project?')">Cost drivers</button>
-                    <button class="quick-btn" onclick="askQuickQuestion('${plot.id}', 'How can I reduce my construction budget without compromising quality?')">Save money</button>
-                    <button class="quick-btn" onclick="askQuickQuestion('${plot.id}', 'What permits and fees should I budget for?')">Permits & fees</button>
+                    <button class="quick-btn" onclick="askQuickQuestion('${plotId}', 'What are the main cost drivers for this project?')">Cost drivers</button>
+                    <button class="quick-btn" onclick="askQuickQuestion('${plotId}', 'How can I reduce my construction budget without compromising quality?')">Save money</button>
+                    <button class="quick-btn" onclick="askQuickQuestion('${plotId}', 'What permits and fees should I budget for?')">Permits & fees</button>
                 </div>
             </div>
         </div>
@@ -437,7 +442,7 @@ function askQuickQuestion(plotId, question) {
 }
 
 async function processQuestion(plotId, question) {
-    const plot = DB.getById('plots', plotId);
+    const plot = await DB.getById('plots', plotId);
     const messagesContainer = document.getElementById('chat-messages');
 
     // Add user message
