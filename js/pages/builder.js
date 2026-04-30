@@ -242,48 +242,70 @@ async function renderOpenRequestCard(request) {
 
 async function viewRequestDetails(requestId) {
     const request = await DB.getById('quote_requests', requestId);
-    const plot = await DB.getById('plots', request.plot_id);
-    const customer = await DB.getOneByField('customer_profiles', 'user_id', request.customer_id);
+    if (!request) { showToast('Could not load request.', 'error'); return; }
+
+    const plot = (request.plot && typeof request.plot === 'object')
+        ? request.plot
+        : await DB.getById('plots', request.plot || request.plot_id);
+
+    const owner = request.owner && typeof request.owner === 'object' ? request.owner : null;
+    const ownerName = owner
+        ? [owner.firstName, owner.lastName].filter(Boolean).join(' ') || owner.email
+        : 'N/A';
+
+    const plotLabel  = plot?.streetAddress || plot?.title || 'Unknown plot';
+    const projectType = request.projectType || request.project_type || '';
+    const region      = plot?.province || plot?.state || '';
+    const area        = (plot?.length && plot?.width) ? plot.length * plot.width : null;
+    const budgetText  = (request.budgetMin || request.budgetMax)
+        ? `$${(request.budgetMin || 0).toLocaleString()} - $${(request.budgetMax || 0).toLocaleString()}`
+        : (request.budget_range || 'Not specified');
+    const startDate   = request.timelineStartDate || request.expected_start;
+    const description = request.description || request.requirements || '';
 
     showModal('Project Details', `
         <div class="request-details">
-            <h4 style="margin-bottom: var(--space-4);">${plot?.title || 'Unknown Plot'}</h4>
+            <h4 style="margin-bottom: var(--space-4);">${plotLabel}</h4>
             <div class="request-info" style="margin-bottom: var(--space-6);">
                 <div class="request-info-row">
                     <span class="label">Owner</span>
-                    <span>${customer?.full_name || 'N/A'}</span>
+                    <span>${ownerName}</span>
                 </div>
                 <div class="request-info-row">
                     <span class="label">Project Type</span>
-                    <span>${request.project_type}</span>
+                    <span>${projectType}</span>
                 </div>
                 <div class="request-info-row">
                     <span class="label">Location</span>
-                    <span>${plot?.address || ''}, ${plot?.city || ''}, ${plot?.state || ''}</span>
+                    <span>${[plot?.streetAddress, plot?.city, region, plot?.country].filter(Boolean).join(', ') || '—'}</span>
                 </div>
                 <div class="request-info-row">
                     <span class="label">Plot Size</span>
-                    <span>${plot?.area_sqft?.toLocaleString() || 'N/A'} sq ft</span>
+                    <span>${area ? area.toLocaleString() + ' sq ft' : 'N/A'}</span>
                 </div>
                 <div class="request-info-row">
-                    <span class="label">Plot Type</span>
-                    <span>${plot?.plot_type || 'N/A'}</span>
+                    <span class="label">Floors</span>
+                    <span>${request.numberOfFloors || 1}</span>
+                </div>
+                <div class="request-info-row">
+                    <span class="label">Total Built Area</span>
+                    <span>${request.totalArea ? request.totalArea.toLocaleString() + ' sq ft' : 'N/A'}</span>
                 </div>
                 <div class="request-info-row">
                     <span class="label">Budget Range</span>
-                    <span>${request.budget_range || 'Not specified'}</span>
+                    <span>${budgetText}</span>
                 </div>
                 <div class="request-info-row">
                     <span class="label">Expected Start</span>
-                    <span>${request.expected_start ? formatDate(request.expected_start) : 'Flexible'}</span>
+                    <span>${startDate ? formatDate(startDate) : 'Flexible'}</span>
+                </div>
+                <div class="request-info-row">
+                    <span class="label">Expected Duration</span>
+                    <span>${request.expectedDurationMonths ? request.expectedDurationMonths + ' months' : 'Flexible'}</span>
                 </div>
             </div>
-            <h5 style="margin-bottom: var(--space-2);">Requirements</h5>
-            <p style="color: var(--gray-300); font-size: var(--font-size-sm);">${request.requirements}</p>
-            ${plot?.description ? `
-                <h5 style="margin: var(--space-4) 0 var(--space-2);">Plot Description</h5>
-                <p style="color: var(--gray-300); font-size: var(--font-size-sm);">${plot.description}</p>
-            ` : ''}
+            <h5 style="margin-bottom: var(--space-2);">Description</h5>
+            <p style="color: var(--gray-300); font-size: var(--font-size-sm);">${description}</p>
         </div>
     `, [
         { text: 'Close', class: 'btn-outline', onclick: 'closeModal()' },
@@ -297,9 +319,25 @@ async function renderSubmitQuote(requestId) {
     if (!user || user.role !== 'builder' && user.role !== 'constructor') { navigateTo('login'); return; }
 
     const request = await DB.getById('quote_requests', requestId);
-    if (!request) { navigateTo('open-requests'); return; }
+    if (!request) {
+        showToast('Could not load that request.', 'error');
+        navigateTo('open-requests');
+        return;
+    }
 
-    const plot = await DB.getById('plots', request.plot_id);
+    // Backend populates `plot`; fall back to a separate lookup if not.
+    const plot = (request.plot && typeof request.plot === 'object')
+        ? request.plot
+        : await DB.getById('plots', request.plot || request.plot_id);
+
+    const plotLabel  = plot?.streetAddress || plot?.title || 'Project';
+    const projectType = request.projectType || request.project_type || '';
+    const region      = plot?.province || plot?.state || '';
+    const area        = (plot?.length && plot?.width) ? plot.length * plot.width : null;
+    const budgetText  = (request.budgetMin || request.budgetMax)
+        ? `$${(request.budgetMin || 0).toLocaleString()} - $${(request.budgetMax || 0).toLocaleString()}`
+        : (request.budget_range || 'Not specified');
+    const description = request.description || request.requirements || '';
 
     const main = document.getElementById('main-content');
     main.innerHTML = `
@@ -309,7 +347,7 @@ async function renderSubmitQuote(requestId) {
                 <div class="dashboard-header">
                     <div>
                         <h1 class="dashboard-title">Submit Quote</h1>
-                        <p class="dashboard-subtitle">for ${plot?.title || 'Project'} - ${request.project_type}</p>
+                        <p class="dashboard-subtitle">for ${plotLabel}${projectType ? ' - ' + projectType : ''}</p>
                     </div>
                 </div>
                 <div class="card" style="max-width: 800px;">
@@ -317,30 +355,50 @@ async function renderSubmitQuote(requestId) {
                         <div class="project-summary" style="background: rgba(0,0,0,0.2); padding: var(--space-4); border-radius: var(--radius-lg); margin-bottom: var(--space-6);">
                             <h5 style="margin-bottom: var(--space-2);">Project Summary</h5>
                             <p style="font-size: var(--font-size-sm); color: var(--gray-400); margin-bottom: var(--space-2);">
-                                <strong>Location:</strong> ${plot?.city}, ${plot?.state} | 
-                                <strong>Size:</strong> ${plot?.area_sqft?.toLocaleString()} sq ft | 
-                                <strong>Budget:</strong> ${request.budget_range || 'Not specified'}
+                                <strong>Location:</strong> ${plot?.city || '—'}${region ? ', ' + region : ''} |
+                                <strong>Size:</strong> ${area ? area.toLocaleString() + ' sq ft' : 'N/A'} |
+                                <strong>Budget:</strong> ${budgetText}
                             </p>
-                            <p style="font-size: var(--font-size-sm); color: var(--gray-300);">${request.requirements}</p>
+                            <p style="font-size: var(--font-size-sm); color: var(--gray-300);">${description}</p>
                         </div>
                         <form id="submit-quote-form" onsubmit="handleSubmitQuote(event, '${requestId}')">
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label class="form-label">Quote Amount ($) *</label>
-                                    <input type="number" name="amount" class="form-input" placeholder="Enter your quote amount" required min="1">
+                                    <label class="form-label">Materials Cost ($) *</label>
+                                    <input type="number" step="100" min="0" name="materialsCost" class="form-input" placeholder="e.g., 25000" required>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Estimated Duration (Days) *</label>
-                                    <input type="number" name="estimated_days" class="form-input" placeholder="e.g., 90" required min="1">
+                                    <label class="form-label">Labor Cost ($) *</label>
+                                    <input type="number" step="100" min="0" name="laborCost" class="form-input" placeholder="e.g., 15000" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Permits Cost ($)</label>
+                                    <input type="number" step="50" min="0" name="permitsCost" class="form-input" placeholder="e.g., 1500" value="0">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Other Cost ($)</label>
+                                    <input type="number" step="50" min="0" name="otherCost" class="form-input" placeholder="e.g., 2000" value="0">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Start Date</label>
+                                    <input type="date" name="startDate" class="form-input">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">End Date</label>
+                                    <input type="date" name="endDate" class="form-input">
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Scope of Work *</label>
-                                <textarea name="scope_of_work" class="form-textarea" placeholder="Describe what's included in your quote..." required></textarea>
+                                <label class="form-label">Duration (months)</label>
+                                <input type="number" min="1" name="durationMonths" class="form-input" placeholder="e.g., 6">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Terms & Conditions</label>
-                                <textarea name="terms" class="form-textarea" placeholder="Any special terms, payment schedules, warranties..."></textarea>
+                                <label class="form-label">Scope of Work / Notes *</label>
+                                <textarea name="description" class="form-textarea" placeholder="What's included, materials grade, payment terms, warranty..." required></textarea>
                             </div>
                             <div class="form-actions" style="display: flex; gap: var(--space-4); margin-top: var(--space-6);">
                                 <button type="button" class="btn btn-outline" onclick="navigateTo('open-requests')">Cancel</button>
@@ -358,21 +416,27 @@ async function renderSubmitQuote(requestId) {
 async function handleSubmitQuote(event, requestId) {
     event.preventDefault();
     const form = event.target;
-    const user = await Auth.getCurrentUser();
 
     const data = {
-        quote_request_id: requestId,
-        builder_id: user.id,
-        amount: parseFloat(form.amount.value),
-        estimated_days: parseInt(form.estimated_days.value),
-        scope_of_work: form.scope_of_work.value,
-        terms: form.terms.value,
-        status: 'pending'
+        requestId:      requestId,
+        materialsCost:  parseFloat(form.materialsCost.value),
+        laborCost:      parseFloat(form.laborCost.value),
+        permitsCost:    form.permitsCost.value ? parseFloat(form.permitsCost.value) : 0,
+        otherCost:      form.otherCost.value   ? parseFloat(form.otherCost.value)   : 0,
+        startDate:      form.startDate.value || null,
+        endDate:        form.endDate.value   || null,
+        durationMonths: form.durationMonths.value ? parseInt(form.durationMonths.value, 10) : null,
+        description:    form.description.value
     };
 
-    await DB.insert('quotes', data);
-    showToast('Quote submitted successfully!', 'success');
-    navigateTo('builder-quotes');
+    try {
+        await DB.insert('quotes', data);
+        showToast('Quote submitted successfully!', 'success');
+        navigateTo('builder-quotes');
+    } catch (err) {
+        console.error('Submit quote failed:', err);
+        showToast(err.message || 'Failed to submit quote.', 'error');
+    }
 }
 
 // Builder's Quotes Page
@@ -380,21 +444,37 @@ async function renderBuilderQuotes() {
     const user = await Auth.getCurrentUser();
     if (!user || user.role !== 'builder' && user.role !== 'constructor') { navigateTo('login'); return; }
 
-    const myQuotes = await DB.getByField('quotes', 'builder_id', user.id);
+    // Backend filters by JWT, so the field name in the filter doesn't matter.
+    const myQuotes = await DB.getByField('quotes', 'constructor', user.id);
 
     // Pre-build table rows (async)
     let tableRowsHtml = '';
     for (const quote of myQuotes) {
-        const request = await DB.getById('quote_requests', quote.quote_request_id);
-        const plot = request ? await DB.getById('plots', request.plot_id) : null;
+        // Backend populates `request`; localStorage path used `quote_request_id`.
+        const request = (quote.request && typeof quote.request === 'object')
+            ? quote.request
+            : await DB.getById('quote_requests', quote.request || quote.quote_request_id);
+        const plot = request && request.plot && typeof request.plot === 'object'
+            ? request.plot
+            : (request ? await DB.getById('plots', request.plot || request.plot_id) : null);
+
+        const projectType = request?.projectType || request?.project_type || 'N/A';
+        const total = (quote.materialsCost || 0) + (quote.laborCost || 0)
+                    + (quote.permitsCost   || 0) + (quote.otherCost  || 0);
+        const amount = total || quote.amount || 0;
+        const duration = quote.durationMonths
+            ? quote.durationMonths + ' months'
+            : (quote.estimated_days ? quote.estimated_days + ' days' : '—');
+        const created = quote.createdAt || quote.created_at;
+
         tableRowsHtml += `
             <tr>
-                <td>${plot?.title || 'Unknown'}</td>
-                <td>${request?.project_type || 'N/A'}</td>
-                <td>${formatCurrency(quote.amount)}</td>
-                <td>${quote.estimated_days} days</td>
+                <td>${plot?.streetAddress || plot?.title || 'Unknown'}</td>
+                <td>${projectType}</td>
+                <td>${formatCurrency(amount)}</td>
+                <td>${duration}</td>
                 <td>${getStatusBadge(quote.status)}</td>
-                <td>${timeAgo(quote.created_at)}</td>
+                <td>${created ? timeAgo(created) : '—'}</td>
             </tr>
         `;
     }

@@ -27,29 +27,30 @@ const DB = {
     // Get all records from a table
     async getAll(table) {
         if (this.useBackend()) {
-            try {
-                return await APIService.query(table);
-            } catch (error) {
-                console.error(`Backend error, falling back to localStorage:`, error);
-            }
+            const endpoint = this.getEndpointForTable(table);
+            return await APIService.queryEndpoint(endpoint, this.getPluralKey(table));
         }
 
-        // localStorage fallback
+        // localStorage path
         const data = localStorage.getItem(table);
         return data ? JSON.parse(data) : [];
     },
 
     // Get record by ID
     async getById(table, id) {
+        if (!id) return null;
         if (this.useBackend()) {
+            const endpoint = this.getEndpointForTable(table);
             try {
-                return await APIService.getById(table, id);
-            } catch (error) {
-                console.error(`Backend error, falling back to localStorage:`, error);
+                return await APIService.getByIdEndpoint(endpoint, id, this.getSingleKey(table));
+            } catch (err) {
+                // 404s during navigation aren't fatal — return null so callers can handle.
+                if (/404|not found/i.test(err.message)) return null;
+                throw err;
             }
         }
 
-        // localStorage fallback
+        // localStorage path
         const records = await this.getAll(table);
         return records.find(r => r.id === id || r._id === id) || null;
     },
@@ -63,14 +64,11 @@ const DB = {
     // Get all records matching a field value
     async getByField(table, field, value) {
         if (this.useBackend()) {
-            try {
-                return await APIService.query(table, { [field]: value });
-            } catch (error) {
-                console.error(`Backend error, falling back to localStorage:`, error);
-            }
+            const endpoint = this.getEndpointForTable(table);
+            return await APIService.queryEndpoint(endpoint, this.getPluralKey(table), { [field]: value });
         }
 
-        // localStorage fallback
+        // localStorage path
         const records = await this.getAll(table);
         return records.filter(r => r[field] === value);
     },
@@ -82,9 +80,12 @@ const DB = {
     async insert(table, record) {
         if (this.useBackend()) {
             const endpoint = this.getEndpointForTable(table);
-            if (endpoint) {
-                return await APIService.insert(endpoint, record);
-            }
+            const singleKey = this.getSingleKey(table);
+            const data = await APIService.request(`/${endpoint}`, {
+                method: 'POST',
+                body: JSON.stringify(record)
+            });
+            return data.data[singleKey] || data.data;
         }
 
         // localStorage path (only when no backend configured)
@@ -103,9 +104,7 @@ const DB = {
     async update(table, id, updates) {
         if (this.useBackend()) {
             const endpoint = this.getEndpointForTable(table);
-            if (endpoint) {
-                return await APIService.update(endpoint, id, updates);
-            }
+            return await APIService.updateEndpoint(endpoint, id, updates, this.getSingleKey(table));
         }
 
         // localStorage path
@@ -127,17 +126,11 @@ const DB = {
     // Delete record
     async delete(table, id) {
         if (this.useBackend()) {
-            try {
-                const endpoint = this.getEndpointForTable(table);
-                if (endpoint) {
-                    return await APIService.delete(endpoint, id);
-                }
-            } catch (error) {
-                console.error(`Backend error, falling back to localStorage:`, error);
-            }
+            const endpoint = this.getEndpointForTable(table);
+            return await APIService.delete(endpoint, id);
         }
 
-        // localStorage fallback
+        // localStorage path
         const records = await this.getAll(table);
         const filtered = records.filter(r => r.id !== id && r._id !== id);
         localStorage.setItem(table, JSON.stringify(filtered));
@@ -147,35 +140,42 @@ const DB = {
     // Query with filters
     async query(table, filters = {}) {
         if (this.useBackend()) {
-            try {
-                return await APIService.query(table, filters);
-            } catch (error) {
-                console.error(`Backend error, falling back to localStorage:`, error);
-            }
+            const endpoint = this.getEndpointForTable(table);
+            return await APIService.queryEndpoint(endpoint, this.getPluralKey(table), filters);
         }
 
-        // localStorage fallback
+        // localStorage path
         let records = await this.getAll(table);
-
         Object.keys(filters).forEach(key => {
             records = records.filter(r => r[key] === filters[key]);
         });
-
         return records;
     },
 
-    // Map table names to API endpoints
+    // Table → backend route + response key mapping. Backend wraps responses
+    // as { data: { <singleKey>: ... } } or { data: { <pluralKey>: [...] } }
+    // and that key isn't always derivable from the table name (quote_requests
+    // → quoteRequests, not quote_request_s).
+    _tableConfig: {
+        contact_messages: { endpoint: 'contact',         single: 'contactMessage', plural: 'contactMessages' },
+        plots:            { endpoint: 'plots',           single: 'plot',           plural: 'plots' },
+        quote_requests:   { endpoint: 'quotes/requests', single: 'quoteRequest',   plural: 'quoteRequests' },
+        quotes:           { endpoint: 'quotes',          single: 'quote',          plural: 'quotes' },
+        users:            { endpoint: 'users',           single: 'user',           plural: 'users' },
+        customer_profiles:{ endpoint: 'users',           single: 'user',           plural: 'users' },
+        builder_profiles: { endpoint: 'users',           single: 'user',           plural: 'users' }
+    },
+
     getEndpointForTable(table) {
-        const mapping = {
-            'contact_messages': 'contact',
-            'plots': 'plots',
-            'quote_requests': 'quotes/requests',
-            'quotes': 'quotes',
-            'users': 'users',
-            'customer_profiles': 'users',
-            'builder_profiles': 'users'
-        };
-        return mapping[table] || table;
+        return (this._tableConfig[table] && this._tableConfig[table].endpoint) || table;
+    },
+
+    getSingleKey(table) {
+        return (this._tableConfig[table] && this._tableConfig[table].single) || table.replace(/s$/, '');
+    },
+
+    getPluralKey(table) {
+        return (this._tableConfig[table] && this._tableConfig[table].plural) || table;
     },
 
     // Seed demo data (localStorage only)

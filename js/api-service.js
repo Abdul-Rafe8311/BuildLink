@@ -191,7 +191,8 @@ const APIService = {
         return data.data.user;
     },
 
-    // Database operations
+    // Database operations — legacy helpers kept for callers that already
+    // know the exact endpoint and rely on the heuristic unwrap.
     async query(table, filters = {}) {
         const params = new URLSearchParams(filters).toString();
         const endpoint = `/${table}${params ? '?' + params : ''}`;
@@ -201,7 +202,7 @@ const APIService = {
 
     async getById(table, id) {
         const data = await this.request(`/${table}/${id}`);
-        return data.data[table.slice(0, -1)] || null; // Remove 's' from table name
+        return data.data[table.slice(0, -1)] || null;
     },
 
     async insert(table, record) {
@@ -221,10 +222,34 @@ const APIService = {
     },
 
     async delete(table, id) {
-        await this.request(`/${table}/${id}`, {
-            method: 'DELETE'
-        });
+        await this.request(`/${table}/${id}`, { method: 'DELETE' });
         return true;
+    },
+
+    // Endpoint-aware variants — caller specifies the exact route and the
+    // response key. Use these when the table name doesn't map cleanly to
+    // the route or response shape (e.g. quote_requests → quotes/requests
+    // with response.data.quoteRequests).
+    async queryEndpoint(endpoint, pluralKey, filters = {}) {
+        const params = new URLSearchParams(
+            Object.entries(filters).filter(([, v]) => v !== undefined && v !== null)
+        ).toString();
+        const url = `/${endpoint}${params ? '?' + params : ''}`;
+        const data = await this.request(url);
+        return data.data[pluralKey] || [];
+    },
+
+    async getByIdEndpoint(endpoint, id, singleKey) {
+        const data = await this.request(`/${endpoint}/${id}`);
+        return data.data[singleKey] || null;
+    },
+
+    async updateEndpoint(endpoint, id, updates, singleKey) {
+        const data = await this.request(`/${endpoint}/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(updates)
+        });
+        return data.data[singleKey] || data.data;
     },
 
     // Special endpoints
